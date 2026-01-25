@@ -3,8 +3,8 @@ package com.ashcollege.entities;
 public class UserEntity extends BaseEntity {
     private String username;
     private String password;
-    private CityEntity city;
     private String token;
+    private String fullName;
 
     public String getUsername() {
         return username;
@@ -22,12 +22,12 @@ public class UserEntity extends BaseEntity {
         this.password = password;
     }
 
-    public CityEntity getCity() {
-        return city;
+    public String getFullName() {
+        return fullName;
     }
 
-    public void setCity(CityEntity city) {
-        this.city = city;
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
     }
 
     public String getToken() {
