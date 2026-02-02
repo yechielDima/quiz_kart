@@ -55,6 +55,28 @@ public class Persist {
         return this.sessionFactory.getCurrentSession()
                 .createQuery("FROM " + clazz.getSimpleName()).list();
     }
+    public UserEntity getUserByUsernameAndPassword(String username, String password) {
+        return this.sessionFactory.getCurrentSession()
+                .createQuery("FROM UserEntity  " +
+                        "WHERE username = :username " +
+                        "AND password = :password", UserEntity.class)
+                .setParameter("username", username)
+                .setParameter("password", password)
+                .uniqueResult();
+    }
+    public UserEntity getUserByUsername(String username) {
+        return this.sessionFactory.getCurrentSession()
+                .createQuery("FROM UserEntity " + " WHERE username = :username ", UserEntity.class)
+                .setParameter("username", username)
+                .uniqueResult();
+    }
+    public UserEntity getUserByToken(String token) {
+        return this.sessionFactory.getCurrentSession()
+                .createQuery("FROM UserEntity " +
+                        "WHERE token = :token", UserEntity.class)
+                .setParameter("token", token)
+                .uniqueResult();
+    }
 
 
 
