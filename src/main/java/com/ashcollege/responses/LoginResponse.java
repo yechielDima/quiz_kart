@@ -14,11 +14,7 @@ public class LoginResponse extends BasicResponse {
 
     }
 
-    public LoginResponse(int permission, String token, int id) {
-        this.permission = permission;
-        this.token = token;
-        this.id = id;
-    }
+
 
     public int getPermission() {
         return permission;

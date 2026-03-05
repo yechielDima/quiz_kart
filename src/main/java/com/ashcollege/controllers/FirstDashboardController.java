@@ -1,9 +1,11 @@
 package com.ashcollege.controllers;
 
+import com.ashcollege.entities.GameEntity;
 import com.ashcollege.entities.UserEntity;
 import com.ashcollege.responses.BasicResponse;
 import com.ashcollege.responses.DefaultParamResponse;
 import com.ashcollege.responses.LoginResponse;
+import com.ashcollege.responses.NewGameResponse;
 import com.ashcollege.service.Persist;
 import com.ashcollege.utils.GeneralUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,10 +28,20 @@ public class FirstDashboardController {
     }
 
     @RequestMapping("/newGame")
-    public BasicResponse getUser(String token, String gameName, int type) {
+    public BasicResponse getUser(String token, String newGameName, int gameType) {
             UserEntity userEntity = persist.getUserByToken(token);
             if (userEntity != null) {
-                return new BasicResponse(true, ERROR_NOT_AUTHORIZED);/*צריך פה להחליף לפעולה של פתיחת משחק חדש*/
+
+                    GameEntity newGame = new GameEntity();
+
+                    newGame.setGameName(newGameName);
+                    newGame.setGameType(gameType);
+
+                    newGame.setCreator(userEntity);
+
+                    persist.save(newGame);
+                    return new NewGameResponse(true,null,newGame.getGameCode());
+
             } else {
                 return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
             }

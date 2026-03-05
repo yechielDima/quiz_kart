@@ -11,12 +11,41 @@
         <property name="deleted" type="boolean">
             <column name="deleted" default="false"/>
         </property>
+
+        <property name="creationDate" type="timestamp" update="false" generated="insert">
+            <column name="creation_date" default="CURRENT_TIMESTAMP" />
+        </property>
         <property name="username" type="string" column="username"/>
         <property name="password" type="string" column="password"/>
         <property name="fullName" type="string" column="full_name"/>
         <property name="token" type="string" column="token"/>
     </class>
 
+    <class name="com.ashcollege.entities.GameEntity" table="games" lazy="false">
+        <id name="id" type="int" column="id">
+            <generator class="native"/>
+        </id>
+        <property name="deleted" type="boolean">
+            <column name="deleted" default="false"/>
+        </property>
+        <property name="creationDate" type="timestamp" update="false" generated="insert">
+            <column name="creation_date" default="CURRENT_TIMESTAMP" />
+        </property>
+        <property name="gameName" type="string" column="game_name"/>
+        <many-to-one name="creator"
+                     column="creator_id"
+                     class="com.ashcollege.entities.UserEntity"
+                     not-null="true" />
+
+        <property name="gameType" type="int" column="game_type"/>
+
+        <property name="gameCode" type="string">
+            <column name="game_code" not-null="true" unique="true"/>
+        </property>
+
+
+        <property name="status" type="int" column="status"/>
+    </class>
 
 
 </hibernate-mapping>
