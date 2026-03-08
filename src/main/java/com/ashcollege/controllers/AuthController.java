@@ -54,6 +54,7 @@ public class AuthController {
                 if (userEntity != null) {
                     return new BasicResponse(false,ERROR_USERNAME_ALREADY_EXISTS);
                 }else {
+
                     UserEntity user = new UserEntity();
                     user.setUsername(username);
                     user.setPassword(password);

@@ -1,5 +1,6 @@
 package com.ashcollege.entities;
 import java.util.Date;
+import java.util.List;
 import java.util.Random;
 
 public class GameEntity extends BaseEntity {
@@ -8,6 +9,7 @@ public class GameEntity extends BaseEntity {
     private String gameCode;
     private int status;
     private UserEntity creator;
+
     public GameEntity() {
         this.gameCode = generateRandomCode(6);
     }
@@ -21,6 +23,7 @@ public class GameEntity extends BaseEntity {
         }
         return sb.toString();
     }
+
 
     public UserEntity getCreator() {
         return creator;

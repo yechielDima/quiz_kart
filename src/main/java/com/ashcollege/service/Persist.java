@@ -79,6 +79,30 @@ public class Persist {
                 .setParameter("token", token)
                 .uniqueResult();
     }
+    public UserEntity getUserById(int id) {
+        return this.sessionFactory.getCurrentSession()
+                .createQuery("FROM UserEntity " +
+                        "WHERE id = :id", UserEntity.class)
+                .setParameter("id", id)
+                .uniqueResult();
+    }
+    public GameEntity getGameById(int id) {
+        return this.sessionFactory.getCurrentSession()
+                .createQuery("FROM GameEntity " +
+                        "WHERE id = :id", GameEntity.class)
+                .setParameter("id", id)
+                .uniqueResult();
+    }
+    public List<UserEntity> getPlayersByGameId(int gameId) {
+        return this.sessionFactory.getCurrentSession()
+                .createQuery(
+                        "SELECT gp.player FROM GamePlayerEntity gp " +
+                                "WHERE gp.game.id = :id",
+                        UserEntity.class)
+                .setParameter("id", gameId)
+                .getResultList();
+    }
+
 
 
 

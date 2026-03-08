@@ -47,5 +47,28 @@
         <property name="status" type="int" column="status"/>
     </class>
 
+    <class name="com.ashcollege.entities.GamePlayerEntity" table="game_players" lazy="false">
+        <id name="id" type="int" column="id">
+            <generator class="native"/>
+        </id>
+        <property name="deleted" type="boolean">
+            <column name="deleted" default="false"/>
+        </property>
+        <property name="creationDate" type="timestamp" update="false" generated="insert">
+            <column name="creation_date" default="CURRENT_TIMESTAMP" />
+        </property>
+
+        <many-to-one name="player"
+                     column="player_id"
+                     class="com.ashcollege.entities.UserEntity"
+                     not-null="true" />
+        <many-to-one name="game"
+                     column="game_id"
+                     class="com.ashcollege.entities.GameEntity"
+                     not-null="true" />
+
+        <property name="score" type="int" column="score"/>
+    </class>
+
 
 </hibernate-mapping>
