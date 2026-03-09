@@ -93,6 +93,13 @@ public class Persist {
                 .setParameter("id", id)
                 .uniqueResult();
     }
+    public GameEntity getGameByGameCode(String gameCode) {
+        return this.sessionFactory.getCurrentSession()
+                .createQuery("FROM GameEntity " +
+                        "WHERE gameCode = :gameCode" + " AND deleted = false", GameEntity.class)
+                .setParameter("gameCode", gameCode)
+                .uniqueResult();
+    }
     public List<UserEntity> getPlayersByGameId(int gameId) {
         return this.sessionFactory.getCurrentSession()
                 .createQuery(

@@ -1,6 +1,7 @@
 package com.ashcollege.controllers;
 
 import com.ashcollege.entities.GameEntity;
+import com.ashcollege.entities.GamePlayerEntity;
 import com.ashcollege.entities.UserEntity;
 import com.ashcollege.responses.*;
 import com.ashcollege.service.Persist;
@@ -26,7 +27,7 @@ public class FirstDashboardController {
     public void init() {
     }
 
-    @RequestMapping("/newGame")
+    @RequestMapping("/new-game")
     public BasicResponse getUser(String token, String newGameName, int gameType) {
             UserEntity userEntity = persist.getUserByToken(token);
             if (userEntity != null) {
@@ -58,6 +59,31 @@ public class FirstDashboardController {
 
             return new GameResponse(true,null,game,players);
 
+        } else {
+            return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
+        }
+
+    }
+    @RequestMapping("/join-game")
+    public BasicResponse joinGame(String token,String gameCode) {
+        UserEntity userEntity = persist.getUserByToken(token);
+        if (userEntity != null) {
+            GameEntity game = persist.getGameByGameCode(gameCode);
+            if (game != null && game.getStatus() == 0) {
+                List<UserEntity> players = persist.getPlayersByGameId(game.getId());
+                if (players != null && players.size() < 8) {
+                    GamePlayerEntity gamePlayerEntity = new GamePlayerEntity();
+                    gamePlayerEntity.setGame(game);
+                    gamePlayerEntity.setPlayer(userEntity);
+                    gamePlayerEntity.setScore(0);
+                    persist.save(gamePlayerEntity);
+                    return new NewGameResponse(true,null,game.getId());
+                }else  {
+                    return new BasicResponse(false, ERROR_GAME_IS_FULL);
+                }
+            }else  {
+                return new BasicResponse(false, ERROR_MISSING_VALUES);
+            }
         } else {
             return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
         }

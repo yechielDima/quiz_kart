@@ -12,4 +12,11 @@ public class DefaultParamResponse extends BasicResponse{
         this.id = userEntity.getId();
     }
 
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
 }
