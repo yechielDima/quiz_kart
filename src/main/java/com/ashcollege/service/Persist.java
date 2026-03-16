@@ -45,7 +45,6 @@ public class Persist {
     public void save(Object object) {
 
         this.sessionFactory.getCurrentSession().saveOrUpdate(object);
-        this.sessionFactory.getCurrentSession().flush();
     }
 
     public <T> T loadObject(Class<T> clazz, int oid) {
@@ -88,16 +87,15 @@ public class Persist {
     }
     public GameEntity getGameById(int id) {
         return this.sessionFactory.getCurrentSession()
-                .createQuery("FROM GameEntity " +
-                        "WHERE id = :id", GameEntity.class)
+                .createQuery("FROM GameEntity WHERE id = :id AND deleted = false", GameEntity.class)
                 .setParameter("id", id)
                 .uniqueResult();
     }
-    public GameEntity getGameByGameCode(String gameCode) {
+    public GameEntity getGameByGameCode(String gameCode, int status) {
         return this.sessionFactory.getCurrentSession()
-                .createQuery("FROM GameEntity " +
-                        "WHERE gameCode = :gameCode" + " AND deleted = false", GameEntity.class)
+                .createQuery("FROM GameEntity WHERE gameCode = :gameCode AND status = :status AND deleted = false", GameEntity.class)
                 .setParameter("gameCode", gameCode)
+                .setParameter("status", status)
                 .uniqueResult();
     }
     public List<UserEntity> getPlayersByGameId(int gameId) {
@@ -108,6 +106,34 @@ public class Persist {
                         UserEntity.class)
                 .setParameter("id", gameId)
                 .getResultList();
+    }
+    public GamePlayerEntity getGamePlayerByGameAndUser(int gameId, int userId) {
+        return this.sessionFactory.getCurrentSession()
+                .createQuery("FROM GamePlayerEntity gp " +
+                            "WHERE gp.game.id = :gameId " +
+                            "AND gp.player.id = :userId", GamePlayerEntity.class)
+                .setParameter("gameId", gameId)
+                .setParameter("userId", userId)
+                .uniqueResult();
+    }
+    public List<GamePlayerEntity> getGamePlayersByGameId(int gameId) {
+        return sessionFactory.getCurrentSession()
+                .createQuery(
+                        "FROM GamePlayerEntity gp WHERE gp.game.id = :id",
+                        GamePlayerEntity.class)
+                .setParameter("id", gameId)
+                .getResultList();
+    }
+    public boolean doesGameCodeExist(String gameCode) {
+        Long count = sessionFactory.getCurrentSession()
+                .createQuery(
+                        "SELECT COUNT(g.id) FROM GameEntity g WHERE g.gameCode = :gameCode AND g.deleted = false",
+                        Long.class
+                )
+                .setParameter("gameCode", gameCode)
+                .uniqueResult();
+
+        return count != null && count > 0;
     }
 
 

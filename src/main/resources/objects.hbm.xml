@@ -31,6 +31,10 @@
         <property name="creationDate" type="timestamp" update="false" generated="insert">
             <column name="creation_date" default="CURRENT_TIMESTAMP" />
         </property>
+        <property name="startedAt" type="timestamp" column="started_at"/>
+        <property name="finishedAt" type="timestamp" column="finished_at"/>
+        <property name="maxPlayers" type="int" column="max_players"/>
+        <property name="trackLength" type="int" column="track_length"/>
         <property name="gameName" type="string" column="game_name"/>
         <many-to-one name="creator"
                      column="creator_id"
@@ -57,6 +61,11 @@
         <property name="creationDate" type="timestamp" update="false" generated="insert">
             <column name="creation_date" default="CURRENT_TIMESTAMP" />
         </property>
+        <property name="correctAnswers" type="int" column="correct_answers"/>
+        <property name="wrongAnswers" type="int" column="wrong_answers"/>
+        <property name="streak" type="int" column="streak"/>
+        <property name="finished" type="boolean" column="finished"/>
+        <property name="finishTime" type="timestamp" column="finish_time"/>
 
         <many-to-one name="player"
                      column="player_id"

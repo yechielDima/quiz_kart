@@ -18,4 +18,13 @@ public class Constants {
 
     public static final int USER_TYPE_CLIENT = 1;
     public static final int USER_TYPE_PROFESSIONAL = 2;
+
+    public static final int WAITING = 0;
+    public static final int STARTED = 1;
+    public static final int FINISHED = 2;
+
+    public static final int MAX_PLAYERS = 8;
+    public static final int MIN_PLAYERS = 1;
+
+    public static final int TRACK_LENGTH = 1000;
 }

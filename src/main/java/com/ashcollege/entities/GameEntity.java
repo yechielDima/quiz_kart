@@ -9,20 +9,14 @@ public class GameEntity extends BaseEntity {
     private String gameCode;
     private int status;
     private UserEntity creator;
+    private Date startedAt;
+    private Date finishedAt;
+    private int maxPlayers;
+    private int trackLength;
 
-    public GameEntity() {
-        this.gameCode = generateRandomCode(6);
-    }
 
-    private String generateRandomCode(int length) {
-        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        StringBuilder sb = new StringBuilder();
-        Random random = new Random();
-        for (int i = 0; i < length; i++) {
-            sb.append(characters.charAt(random.nextInt(characters.length())));
-        }
-        return sb.toString();
-    }
+
+
 
 
     public UserEntity getCreator() {
@@ -66,6 +60,35 @@ public class GameEntity extends BaseEntity {
         this.gameName = gameName;
     }
 
+    public Date getStartedAt() {
+        return startedAt;
+    }
 
+    public void setStartedAt(Date startedAt) {
+        this.startedAt = startedAt;
+    }
 
+    public Date getFinishedAt() {
+        return finishedAt;
+    }
+
+    public void setFinishedAt(Date finishedAt) {
+        this.finishedAt = finishedAt;
+    }
+
+    public int getMaxPlayers() {
+        return maxPlayers;
+    }
+
+    public void setMaxPlayers(int maxPlayers) {
+        this.maxPlayers = maxPlayers;
+    }
+
+    public int getTrackLength() {
+        return trackLength;
+    }
+
+    public void setTrackLength(int trackLength) {
+        this.trackLength = trackLength;
+    }
 }
