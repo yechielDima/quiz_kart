@@ -12,6 +12,8 @@ public class Errors {
     public static final int ERROR_GAME_ALREADY_EXISTS = 1008;
     public static final int ERROR_GAME_ALREADY_STARTED = 1009;
     public static final int ERROR_NOT_ENOUGH_PLAYERS = 1010;
+    public static final int ERROR_NO_PREMITION = 1011;
+
 
 
 

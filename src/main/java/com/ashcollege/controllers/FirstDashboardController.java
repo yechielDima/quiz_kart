@@ -67,6 +67,15 @@ public class FirstDashboardController {
             }
 
             List<UserEntity> players = persist.getPlayersByGameId(id);
+
+            boolean isCreator = game.getCreator() != null && game.getCreator().getId() == userEntity.getId();
+
+            boolean isPlayer = players.stream().anyMatch(p -> p.getId() == userEntity.getId());
+
+            if (!isCreator && !isPlayer) {
+                return new BasicResponse(false, ERROR_NO_PREMITION);
+            }
+
             return new GameResponse(true, null, game, players);
         } else {
             return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
