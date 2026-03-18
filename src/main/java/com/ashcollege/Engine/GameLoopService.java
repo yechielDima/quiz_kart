@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.sql.Timestamp;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -78,7 +79,7 @@ public class GameLoopService {
         GameEntity game = persist.getGameById(gameState.getGameId());
         if (game != null) {
             game.setStatus(2); // FINISHED
-            game.setFinishedAt(new Timestamp(System.currentTimeMillis()));
+            game.setFinishedAt(new Date());
             persist.save(game);
         }
 
@@ -95,7 +96,7 @@ public class GameLoopService {
 
                     if (gp.getPlayer().getId() == winnerUserId) {
                         gp.setFinished(true);
-                        gp.setFinishTime(new Timestamp(System.currentTimeMillis()));
+                        gp.setFinishTime(new Date());
                     }
 
                     persist.save(gp);
