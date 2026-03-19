@@ -12,26 +12,30 @@ public class GameModel {
     private String gameCode;
     private int status;
     private UserModel creator;
-    private List<UserModel> players;
-    private Date startedAt;
-    private Date finishedAt;
+    private List<GamePlayerModel> players;
+    private Long startedAt;
+    private Long finishedAt;
     private int maxPlayers;
     private int trackLength;
-    public GameModel(GameEntity game,List<UserEntity> players) {
+    public GameModel(GameEntity game, List<GamePlayerModel> players) {
         this.gameCode = game.getGameCode();
         this.gameName = game.getGameName();
         this.gameType = game.getGameType();
         this.status = game.getStatus();
         this.maxPlayers = game.getMaxPlayers();
         this.trackLength = game.getTrackLength();
-        this.startedAt = game.getStartedAt();
-        this.finishedAt = game.getFinishedAt();
+        this.startedAt = game.getStartedAt() != null ? game.getStartedAt().getTime() : null;
+        this.finishedAt = game.getFinishedAt() != null ? game.getFinishedAt().getTime() : null;
         this.creator = new UserModel(game.getCreator());
-        if (players != null) {
-            this.players = players.stream().map(UserModel::new).toList();
-        }
+        this.players = players;
+    }
+    public List<GamePlayerModel> getPlayers() {
+        return players;
     }
 
+    public void setPlayers(List<GamePlayerModel> players) {
+        this.players = players;
+    }
     public String getGameName() {
         return gameName;
     }
@@ -56,13 +60,6 @@ public class GameModel {
         this.gameCode = gameCode;
     }
 
-    public List<UserModel> getPlayers() {
-        return players;
-    }
-
-    public void setPlayers(List<UserModel> players) {
-        this.players = players;
-    }
 
     public UserModel getCreator() {
         return creator;
@@ -76,39 +73,21 @@ public class GameModel {
         return status;
     }
 
-    public Date getStartedAt() {
-        return startedAt;
-    }
+    public Long getStartedAt() { return startedAt; }
 
-    public void setStartedAt(Date startedAt) {
-        this.startedAt = startedAt;
-    }
+    public void setStartedAt(Long startedAt) { this.startedAt = startedAt;}
 
-    public Date getFinishedAt() {
-        return finishedAt;
-    }
+    public Long getFinishedAt() { return finishedAt; }
 
-    public void setFinishedAt(Date finishedAt) {
-        this.finishedAt = finishedAt;
-    }
+    public void setFinishedAt(Long finishedAt) { this.finishedAt = finishedAt; }
 
-    public int getMaxPlayers() {
-        return maxPlayers;
-    }
+    public int getMaxPlayers() { return maxPlayers; }
 
-    public void setMaxPlayers(int maxPlayers) {
-        this.maxPlayers = maxPlayers;
-    }
+    public void setMaxPlayers(int maxPlayers) { this.maxPlayers = maxPlayers; }
 
-    public int getTrackLength() {
-        return trackLength;
-    }
+    public int getTrackLength() { return trackLength; }
 
-    public void setTrackLength(int trackLength) {
-        this.trackLength = trackLength;
-    }
+    public void setTrackLength(int trackLength) { this.trackLength = trackLength; }
 
-    public void setStatus(int status) {
-        this.status = status;
-    }
+    public void setStatus(int status) { this.status = status; }
 }

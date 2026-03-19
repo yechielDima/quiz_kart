@@ -20,8 +20,8 @@ import java.util.List;
 
 import static com.ashcollege.utils.Constants.*;
 import static com.ashcollege.utils.Errors.*;
-import static com.ashcollege.utils.Errors.ERROR_MISSING_VALUES;
-
+import java.util.HashMap;
+import java.util.Map;
 @RestController
 public class FirstDashboardController {
     @Autowired
@@ -51,6 +51,13 @@ public class FirstDashboardController {
             newGame.setGameCode(generateUniqueGameCode());
 
             persist.save(newGame);
+            ActiveGameState activeGameState = new ActiveGameState();
+            activeGameState.setGameId(newGame.getId());
+            activeGameState.setRunning(false);
+            activeGameState.setFinished(false);
+            activeGameState.setTrackLength(1000);
+            activeGameState.setMaxPlayers(MAX_PLAYERS);
+            activeGameRegistry.addGame(activeGameState);
             return new NewGameResponse(true, null, newGame.getId());
         } else {
             return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
@@ -60,26 +67,29 @@ public class FirstDashboardController {
     @RequestMapping("/get-game")
     public BasicResponse getGame(String token, int id) {
         UserEntity userEntity = persist.getUserByToken(token);
-        if (userEntity != null) {
-            GameEntity game = persist.getGameById(id);
-            if (game == null) {
-                return new BasicResponse(false, ERROR_MISSING_VALUES);
+        if (userEntity == null) return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
+
+        GameEntity game = persist.getGameById(id);
+        if (game == null) return new BasicResponse(false, ERROR_MISSING_VALUES);
+
+        ActiveGameState activeGameState = activeGameRegistry.getGame(id);
+        List<GamePlayerModel> securePlayers = new java.util.ArrayList<>();
+
+        if (activeGameState != null) {
+            game.setStatus(activeGameState.isRunning() ? STARTED : WAITING);
+            for (PlayerRuntimeState liveState : activeGameState.getPlayers().values()) {
+                securePlayers.add(new GamePlayerModel(liveState));
             }
-
-            List<UserEntity> players = persist.getPlayersByGameId(id);
-
-            boolean isCreator = game.getCreator() != null && game.getCreator().getId() == userEntity.getId();
-
-            boolean isPlayer = players.stream().anyMatch(p -> p.getId() == userEntity.getId());
-
-            if (!isCreator && !isPlayer) {
-                return new BasicResponse(false, ERROR_NO_PREMITION);
-            }
-
-            return new GameResponse(true, null, game, players);
         } else {
-            return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
+            // שליפה מהד"ב של הנתונים למקרה שרוצים אותם אחרי שהמשחק הסתיים...
+            List<GamePlayerEntity> dbPlayers = persist.getGamePlayersByGameId(id);
+            for (GamePlayerEntity gp : dbPlayers) {
+                securePlayers.add(new GamePlayerModel(gp));
+            }
         }
+
+        GameModel secureGameModel = new GameModel(game, securePlayers);
+        return new GameResponse(true, null, secureGameModel);
     }
 
     @RequestMapping("/join-game")
@@ -100,7 +110,7 @@ public class FirstDashboardController {
                 if (existingPlayer != null) {
                     return new NewGameResponse(true, null, game.getId());
                 }
-
+                //ההוספה של השחקן לד"ב
                 List<UserEntity> players = persist.getPlayersByGameId(game.getId());
                 if (players != null && players.size() < MAX_PLAYERS) {
                     GamePlayerEntity gamePlayerEntity = new GamePlayerEntity();
@@ -109,6 +119,52 @@ public class FirstDashboardController {
                     gamePlayerEntity.setScore(0);
 
                     persist.save(gamePlayerEntity);
+                    // ההוספה של השחקן לסטייט
+                    ActiveGameState activeGameState = activeGameRegistry.getGame(game.getId());
+                    if (activeGameState != null) {
+                        PlayerRuntimeState playerState = new PlayerRuntimeState();
+                        playerState.setUserId(userEntity.getId());
+                        playerState.setUsername(userEntity.getUsername());
+                        playerState.setFullName(userEntity.getFullName());
+                        playerState.setScore(0);
+                        activeGameState.getPlayers().put(userEntity.getId(), playerState);
+
+                        List<GamePlayerModel> allPlayersNow = new java.util.ArrayList<>();
+                        for (PlayerRuntimeState state : activeGameState.getPlayers().values()) {
+                            allPlayersNow.add(new GamePlayerModel(state));
+                        }
+
+                        // שליחת הודעה לכולם על ההצטרפות ועדכון  של הרשימה אצלהם על ידי SSE
+                        Map<String, Object> eventData = new java.util.HashMap<>();
+                        eventData.put("type", "PLAYERS_LIST_UPDATE");
+                        eventData.put("players", allPlayersNow);
+
+                        // עדכון של היוצר
+                        if (activeGameState.getCreatorEmitter() != null) {
+                            try {
+                                activeGameState.getCreatorEmitter().send(
+                                        org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                                                .name("gameUpdate")
+                                                .data(eventData)
+                                );
+                            } catch (Exception e) {
+                                activeGameState.setCreatorEmitter(null);
+                            }
+                        }
+                        //עדכון של כל השחקנים
+                        for (org.springframework.web.servlet.mvc.method.annotation.SseEmitter playerEmitter : activeGameState.getPlayerEmitters()) {
+                            try {
+                                playerEmitter.send(
+                                        org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                                                .name("playersUpdate")
+                                                .data(eventData)
+                                );
+                            } catch (Exception e) {
+
+                            }
+                        }
+                    }
+
                     return new NewGameResponse(true, null, game.getId());
                 } else {
                     return new BasicResponse(false, ERROR_GAME_IS_FULL);
@@ -123,9 +179,6 @@ public class FirstDashboardController {
 
     @RequestMapping("/start-game")
     public BasicResponse startGame(String token, int gameId) {
-        if (activeGameRegistry.containsGame(gameId)) {
-            return new BasicResponse(false, ERROR_GAME_ALREADY_STARTED);
-        }
         UserEntity userEntity = persist.getUserByToken(token);
         if (userEntity == null) {
             return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
@@ -144,39 +197,27 @@ public class FirstDashboardController {
             return new BasicResponse(false, ERROR_GAME_ALREADY_STARTED);
         }
 
-        List<GamePlayerEntity> gamePlayers = persist.getGamePlayersByGameId(gameId);
-        if (gamePlayers == null || gamePlayers.size() < MIN_PLAYERS) {
-            return new BasicResponse(false, ERROR_NOT_ENOUGH_PLAYERS);
+        ActiveGameState activeGameState = activeGameRegistry.getGame(gameId);
+        if (activeGameState == null) {
+            return new BasicResponse(false, ERROR_GAME_NOT_FOUND);
         }
 
-        ActiveGameState activeGameState = new ActiveGameState();
-        activeGameState.setGameId(game.getId());
         activeGameState.setRunning(true);
-        activeGameState.setFinished(false);
+
         activeGameState.setStartedAt(System.currentTimeMillis());
-        activeGameState.setLastTickTime(System.currentTimeMillis());
-        activeGameState.setTrackLength(TRACK_LENGTH);
-        activeGameState.setMaxPlayers(MAX_PLAYERS);
-
-        for (GamePlayerEntity gp : gamePlayers) {
-
-            UserEntity player = gp.getPlayer();
-
-            PlayerRuntimeState playerState = new PlayerRuntimeState();
-            playerState.setUserId(player.getId());
-            playerState.setUsername(player.getUsername());
-            playerState.setFullName(player.getFullName());
-            playerState.setScore(0);
-            playerState.setCorrectAnswers(0);
-            playerState.setWrongAnswers(0);
-            playerState.setStreak(0);
-            playerState.setFinished(false);
 
 
-            activeGameState.getPlayers().put(player.getId(), playerState);
+        for (org.springframework.web.servlet.mvc.method.annotation.SseEmitter playerEmitter : activeGameState.getPlayerEmitters()) {
+            try {
+                playerEmitter.send(
+                        org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                                .name("statusChange")
+                                .data("{\"type\":\"GAME_STARTED\"}")
+                );
+            } catch (Exception e) {
+
+            }
         }
-
-        activeGameRegistry.addGame(activeGameState);
 
         game.setStatus(STARTED);
         game.setStartedAt(new Date());
