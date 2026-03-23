@@ -20,7 +20,7 @@ import java.util.List;
 
 import static com.ashcollege.utils.Constants.*;
 import static com.ashcollege.utils.Errors.*;
-import java.util.HashMap;
+
 import java.util.Map;
 @RestController
 public class FirstDashboardController {
@@ -28,6 +28,8 @@ public class FirstDashboardController {
     private Persist persist;
     @Autowired
     private ActiveGameRegistry activeGameRegistry;
+    @Autowired
+    private SseService sseService;
 
     @PostConstruct
     public void init() {
@@ -135,34 +137,17 @@ public class FirstDashboardController {
                         }
 
                         // שליחת הודעה לכולם על ההצטרפות ועדכון  של הרשימה אצלהם על ידי SSE
+                        // ... (אחרי שהוספת את השחקן ל-activeGameState ויצרת את רשימת allPlayersNow)
+
                         Map<String, Object> eventData = new java.util.HashMap<>();
                         eventData.put("type", "PLAYERS_LIST_UPDATE");
                         eventData.put("players", allPlayersNow);
 
-                        // עדכון של היוצר
-                        if (activeGameState.getCreatorEmitter() != null) {
-                            try {
-                                activeGameState.getCreatorEmitter().send(
-                                        org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
-                                                .name("gameUpdate")
-                                                .data(eventData)
-                                );
-                            } catch (Exception e) {
-                                activeGameState.setCreatorEmitter(null);
-                            }
-                        }
-                        //עדכון של כל השחקנים
-                        for (org.springframework.web.servlet.mvc.method.annotation.SseEmitter playerEmitter : activeGameState.getPlayerEmitters()) {
-                            try {
-                                playerEmitter.send(
-                                        org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
-                                                .name("playersUpdate")
-                                                .data(eventData)
-                                );
-                            } catch (Exception e) {
+                        // שידור אסינכרוני לכל מי שמחובר לחדר - ללא חשש מתקיעות!
+                        sseService.broadcastToGame(game.getId(), "gameEvent", eventData);
 
-                            }
-                        }
+                        return new NewGameResponse(true, null, game.getId());
+
                     }
 
                     return new NewGameResponse(true, null, game.getId());
@@ -207,17 +192,16 @@ public class FirstDashboardController {
         activeGameState.setStartedAt(System.currentTimeMillis());
 
 
-        for (org.springframework.web.servlet.mvc.method.annotation.SseEmitter playerEmitter : activeGameState.getPlayerEmitters()) {
-            try {
-                playerEmitter.send(
-                        org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
-                                .name("statusChange")
-                                .data("{\"type\":\"GAME_STARTED\"}")
-                );
-            } catch (Exception e) {
 
-            }
-        }
+// משדרים לכל החדר (מורה ותלמידים) שהמשחק התחיל
+        // מכינים את האובייקט שנישלח ללקוח
+        Map<String, Object> startEventData = new java.util.HashMap<>();
+        startEventData.put("type", "GAME_STARTED");
+
+
+// משדרים לכל החדר את האובייקט הנקי
+        sseService.broadcastToGame(gameId, "gameEvent", startEventData);
+
 
         game.setStatus(STARTED);
         game.setStartedAt(new Date());
