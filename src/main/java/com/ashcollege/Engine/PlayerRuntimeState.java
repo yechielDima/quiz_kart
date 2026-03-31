@@ -1,5 +1,8 @@
 package com.ashcollege.Engine;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PlayerRuntimeState {
 
     private int userId;
@@ -11,8 +14,32 @@ public class PlayerRuntimeState {
     private int correctAnswers;
     private int wrongAnswers;
     private int streak;
+    // השאלה שהרגע הוגרלה לשחקן והוא עדיין לא ענה עליה
+    private MathQuestionGenerator.QuestionData currentQuestion;
+    // בתוך PlayerRuntimeState.java להוסיף:
+    private int currentCorrectAnswer;
 
+    private final List<QuestionLog> answerHistory = new ArrayList<>();
     private boolean finished;
+    // --- התוספת שחסרה למדידת הזמנים ---
+    private long currentQuestionStartTime;
+
+    public long getCurrentQuestionStartTime() {
+        return currentQuestionStartTime;
+    }
+
+    public void setCurrentQuestionStartTime(long currentQuestionStartTime) {
+        this.currentQuestionStartTime = currentQuestionStartTime;
+    }
+    // ---------------------------------
+
+    public int getCurrentCorrectAnswer() {
+        return currentCorrectAnswer;
+    }
+
+    public void setCurrentCorrectAnswer(int currentCorrectAnswer) {
+        this.currentCorrectAnswer = currentCorrectAnswer;
+    }
 
     public int getUserId() {
         return userId;
@@ -76,5 +103,16 @@ public class PlayerRuntimeState {
 
     public void setFinished(boolean finished) {
         this.finished = finished;
+    }
+    public MathQuestionGenerator.QuestionData getCurrentQuestion() {
+        return currentQuestion;
+    }
+
+    public void setCurrentQuestion(MathQuestionGenerator.QuestionData currentQuestion) {
+        this.currentQuestion = currentQuestion;
+    }
+
+    public List<QuestionLog> getAnswerHistory() {
+        return answerHistory;
     }
 }

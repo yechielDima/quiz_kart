@@ -23,8 +23,8 @@ public class SseService {
     private final Map<Integer, Map<Integer, SseEmitter>> gameEmitters = new ConcurrentHashMap<>();
 
     // יצירת תהליכון ברקע שישדר את ההודעות בלי לתקוע את השרת
-    private final ExecutorService cachedThreadPool = Executors.newCachedThreadPool();
-
+    // 1. שינוי סוג הבריכה לבריכה בגודל קבוע ומוגן (למשל 50 תהליכונים)
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(50);
     /**
      * הרשמה של משתמש לקבלת עדכונים
      */
@@ -53,7 +53,7 @@ public class SseService {
                 SseEmitter emitter = entry.getValue();
 
                 // שליחה בתהליכון נפרד כדי לא לעכב את הלופ
-                cachedThreadPool.execute(() -> {
+                threadPool.execute(() -> {
                     try {
                         emitter.send(SseEmitter.event().name(eventName).data(data));
                     } catch (IOException | IllegalStateException e) {
@@ -71,7 +71,7 @@ public class SseService {
     public void sendToUser(int gameId, int userId, String eventName, Object data) {
         Map<Integer, SseEmitter> roomEmitters = gameEmitters.get(gameId);
         if (roomEmitters != null && roomEmitters.containsKey(userId)) {
-            cachedThreadPool.execute(() -> {
+            threadPool.execute(() -> {
                 try {
                     roomEmitters.get(userId).send(SseEmitter.event().name(eventName).data(data));
                 } catch (IOException | IllegalStateException e) {
@@ -99,7 +99,7 @@ public class SseService {
     public void sendHeartbeat() {
         gameEmitters.forEach((gameId, roomEmitters) -> {
             roomEmitters.forEach((userId, emitter) -> {
-                cachedThreadPool.execute(() -> {
+                threadPool.execute(() -> {
                     try {
                         emitter.send(SseEmitter.event().name("ping").data("keep-alive"));
                     } catch (IOException | IllegalStateException e) {
@@ -108,5 +108,11 @@ public class SseService {
                 });
             });
         });
+    }
+    // 2. הוספת פונקציית סגירה בסוף המחלקה
+    @javax.annotation.PreDestroy
+    public void shutdown() {
+        LOGGER.info("Shutting down SSE thread pool...");
+        threadPool.shutdown();
     }
 }

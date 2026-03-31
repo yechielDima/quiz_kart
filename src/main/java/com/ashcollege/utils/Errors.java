@@ -9,11 +9,11 @@ public class Errors {
     public static final int ERROR_MISSING_VALUES = 1005;
     public static final int ERROR_GAME_IS_FULL = 1006;
     public static final int ERROR_GAME_NOT_FOUND = 1007;
-    public static final int ERROR_GAME_ALREADY_EXISTS = 1008;
+    public static final int ERROR_GAME_NOT_ACTIVE = 1008;
     public static final int ERROR_GAME_ALREADY_STARTED = 1009;
     public static final int ERROR_NOT_ENOUGH_PLAYERS = 1010;
     public static final int ERROR_NO_PREMITION = 1011;
-
+    public static final int ERROR_WRONG_ANSWER = 1012;
 
 
 

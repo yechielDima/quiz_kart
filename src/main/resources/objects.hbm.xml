@@ -20,7 +20,25 @@
         <property name="fullName" type="string" column="full_name"/>
         <property name="token" type="string" column="token"/>
     </class>
+    <class name="com.ashcollege.entities.PlayerAnswerEntity" table="player_answers">
+        <id name="id" column="id">
+            <generator class="identity"/>
+        </id>
 
+        <many-to-one name="gamePlayer"
+                     class="com.ashcollege.entities.GamePlayerEntity"
+                     column="game_player_id"
+                     not-null="true" />
+
+        <property name="questionText" column="question_text" type="string"/>
+        <property name="questionType" column="question_type" type="int"/>
+        <property name="playerAnswer" column="player_answer" type="int"/>
+        <property name="correctAnswer" column="correct_answer" type="int"/>
+        <property name="Correct" column="is_correct" type="boolean"/>
+
+        <property name="timeTakenMs" column="time_taken_ms" type="long"/>
+        <property name="pointsEarned" column="points_earned" type="int"/>
+    </class>
     <class name="com.ashcollege.entities.GameEntity" table="games" lazy="false">
         <id name="id" type="int" column="id">
             <generator class="native"/>
