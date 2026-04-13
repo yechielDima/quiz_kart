@@ -2,7 +2,6 @@
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
         "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
 
-
 <hibernate-mapping>
     <class name="com.ashcollege.entities.UserEntity" table="users" lazy="false">
         <id name="id" type="int" column="id">
@@ -11,34 +10,32 @@
         <property name="deleted" type="boolean">
             <column name="deleted" default="false"/>
         </property>
-
         <property name="creationDate" type="timestamp" update="false" generated="insert">
-            <column name="creation_date" default="CURRENT_TIMESTAMP" />
+            <column name="creation_date" default="CURRENT_TIMESTAMP"/>
         </property>
         <property name="username" type="string" column="username"/>
         <property name="password" type="string" column="password"/>
         <property name="fullName" type="string" column="full_name"/>
         <property name="token" type="string" column="token"/>
     </class>
+
     <class name="com.ashcollege.entities.PlayerAnswerEntity" table="player_answers">
         <id name="id" column="id">
             <generator class="identity"/>
         </id>
-
         <many-to-one name="gamePlayer"
                      class="com.ashcollege.entities.GamePlayerEntity"
                      column="game_player_id"
-                     not-null="true" />
-
+                     not-null="true"/>
         <property name="questionText" column="question_text" type="string"/>
         <property name="questionType" column="question_type" type="int"/>
         <property name="playerAnswer" column="player_answer" type="int"/>
         <property name="correctAnswer" column="correct_answer" type="int"/>
-        <property name="Correct" column="is_correct" type="boolean"/>
-
+        <property name="correct" column="is_correct" type="boolean"/>
         <property name="timeTakenMs" column="time_taken_ms" type="long"/>
         <property name="pointsEarned" column="points_earned" type="int"/>
     </class>
+
     <class name="com.ashcollege.entities.GameEntity" table="games" lazy="false">
         <id name="id" type="int" column="id">
             <generator class="native"/>
@@ -47,7 +44,7 @@
             <column name="deleted" default="false"/>
         </property>
         <property name="creationDate" type="timestamp" update="false" generated="insert">
-            <column name="creation_date" default="CURRENT_TIMESTAMP" />
+            <column name="creation_date" default="CURRENT_TIMESTAMP"/>
         </property>
         <property name="startedAt" type="timestamp" column="started_at"/>
         <property name="finishedAt" type="timestamp" column="finished_at"/>
@@ -57,15 +54,11 @@
         <many-to-one name="creator"
                      column="creator_id"
                      class="com.ashcollege.entities.UserEntity"
-                     not-null="true" />
-
+                     not-null="true"/>
         <property name="gameType" type="int" column="game_type"/>
-
         <property name="gameCode" type="string">
             <column name="game_code" not-null="true" unique="true"/>
         </property>
-
-
         <property name="status" type="int" column="status"/>
     </class>
 
@@ -77,25 +70,50 @@
             <column name="deleted" default="false"/>
         </property>
         <property name="creationDate" type="timestamp" update="false" generated="insert">
-            <column name="creation_date" default="CURRENT_TIMESTAMP" />
+            <column name="creation_date" default="CURRENT_TIMESTAMP"/>
         </property>
         <property name="correctAnswers" type="int" column="correct_answers"/>
         <property name="wrongAnswers" type="int" column="wrong_answers"/>
         <property name="streak" type="int" column="streak"/>
         <property name="finished" type="boolean" column="finished"/>
         <property name="finishTime" type="timestamp" column="finish_time"/>
-
         <many-to-one name="player"
                      column="player_id"
                      class="com.ashcollege.entities.UserEntity"
-                     not-null="true" />
+                     not-null="true"/>
         <many-to-one name="game"
                      column="game_id"
                      class="com.ashcollege.entities.GameEntity"
-                     not-null="true" />
-
+                     not-null="true"/>
         <property name="score" type="int" column="score"/>
     </class>
 
+    <class name="com.ashcollege.entities.QuestionTemplateEntity" table="question_templates" lazy="false">
+        <id name="id" type="int" column="id">
+            <generator class="native"/>
+        </id>
+        <property name="deleted" type="boolean">
+            <column name="deleted" default="false"/>
+        </property>
+        <property name="creationDate" type="timestamp" update="false" generated="insert">
+            <column name="creation_date" default="CURRENT_TIMESTAMP"/>
+        </property>
+        <property name="templateText" column="template_text" type="string"/>
+        <property name="operationType" column="operation_type" type="int"/>
+        <property name="difficultyLevel" column="difficulty_level" type="int"/>
+    </class>
 
+    <class name="com.ashcollege.entities.QuestionWordEntity" table="question_words" lazy="false">
+        <id name="id" type="int" column="id">
+            <generator class="native"/>
+        </id>
+        <property name="deleted" type="boolean">
+            <column name="deleted" default="false"/>
+        </property>
+        <property name="creationDate" type="timestamp" update="false" generated="insert">
+            <column name="creation_date" default="CURRENT_TIMESTAMP"/>
+        </property>
+        <property name="word" column="word" type="string"/>
+        <property name="category" column="category" type="string"/>
+    </class>
 </hibernate-mapping>

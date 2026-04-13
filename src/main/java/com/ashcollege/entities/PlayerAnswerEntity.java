@@ -7,7 +7,7 @@ public class PlayerAnswerEntity {
     private int questionType;
     private int playerAnswer;
     private int correctAnswer;
-    private boolean Correct;
+    private boolean correct;
     private long timeTakenMs;
     private int pointsEarned;
 
@@ -60,11 +60,11 @@ public class PlayerAnswerEntity {
     }
 
     public boolean isCorrect() {
-        return Correct;
+        return correct;
     }
 
     public void setCorrect(boolean correct) {
-        Correct = correct;
+        this.correct = correct;
     }
 
     public long getTimeTakenMs() {

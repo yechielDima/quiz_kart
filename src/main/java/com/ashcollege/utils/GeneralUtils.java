@@ -12,13 +12,12 @@ public class GeneralUtils {
 
 
 
-    public static String hashMd5 (String username, String password) {
-        String source = username + password;
+    // להחליף את hashMd5 בפונקציה הזו:
+    public static String hashPassword(String username, String password) {
+        String source = username + "SecretSalt123!" + password; // הוספנו מלח (Salt) לאבטחה נוספת
         try {
-            return DatatypeConverter.printHexBinary( MessageDigest.getInstance("MD5").digest(source.getBytes("UTF-8")));
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        } catch (UnsupportedEncodingException e) {
+            return DatatypeConverter.printHexBinary(MessageDigest.getInstance("SHA-256").digest(source.getBytes("UTF-8")));
+        } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }
     }

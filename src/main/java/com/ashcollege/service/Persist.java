@@ -1,6 +1,5 @@
 package com.ashcollege.service;
 
-
 import com.ashcollege.entities.*;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -12,7 +11,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-
 @Transactional
 @Component
 @SuppressWarnings("unchecked")
@@ -22,10 +20,21 @@ public class Persist {
 
     private final SessionFactory sessionFactory;
 
-
     @Autowired
     public Persist(SessionFactory sf) {
         this.sessionFactory = sf;
+    }
+
+    public Session getQuerySession() {
+        return sessionFactory.getCurrentSession();
+    }
+
+    public void save(Object object) {
+        this.sessionFactory.getCurrentSession().saveOrUpdate(object);
+    }
+
+    public void flush() {
+        this.sessionFactory.getCurrentSession().flush();
     }
 
     public <T> void saveAll(List<T> objects) {
@@ -34,63 +43,55 @@ public class Persist {
         }
     }
 
-    public <T> void remove(Object o){
+    public <T> void remove(Object o) {
         sessionFactory.getCurrentSession().remove(o);
-    }
-
-    public Session getQuerySession() {
-        return sessionFactory.getCurrentSession();
-    }
-
-    public void save(Object object) {
-
-        this.sessionFactory.getCurrentSession().saveOrUpdate(object);
     }
 
     public <T> T loadObject(Class<T> clazz, int oid) {
         return this.getQuerySession().get(clazz, oid);
     }
 
-    public <T> List<T> loadList(Class<T> clazz)
-    {
+    public <T> List<T> loadList(Class<T> clazz) {
         return this.sessionFactory.getCurrentSession()
                 .createQuery("FROM " + clazz.getSimpleName()).list();
     }
+
     public UserEntity getUserByUsernameAndPassword(String username, String password) {
         return this.sessionFactory.getCurrentSession()
-                .createQuery("FROM UserEntity  " +
-                        "WHERE username = :username " +
-                        "AND password = :password", UserEntity.class)
+                .createQuery("FROM UserEntity WHERE username = :username AND password = :password", UserEntity.class)
                 .setParameter("username", username)
                 .setParameter("password", password)
                 .uniqueResult();
     }
+
     public UserEntity getUserByUsername(String username) {
         return this.sessionFactory.getCurrentSession()
-                .createQuery("FROM UserEntity " + " WHERE username = :username ", UserEntity.class)
+                .createQuery("FROM UserEntity WHERE username = :username", UserEntity.class)
                 .setParameter("username", username)
                 .uniqueResult();
     }
+
     public UserEntity getUserByToken(String token) {
         return this.sessionFactory.getCurrentSession()
-                .createQuery("FROM UserEntity " +
-                        "WHERE token = :token", UserEntity.class)
+                .createQuery("FROM UserEntity WHERE token = :token", UserEntity.class)
                 .setParameter("token", token)
                 .uniqueResult();
     }
+
     public UserEntity getUserById(int id) {
         return this.sessionFactory.getCurrentSession()
-                .createQuery("FROM UserEntity " +
-                        "WHERE id = :id", UserEntity.class)
+                .createQuery("FROM UserEntity WHERE id = :id", UserEntity.class)
                 .setParameter("id", id)
                 .uniqueResult();
     }
+
     public GameEntity getGameById(int id) {
         return this.sessionFactory.getCurrentSession()
                 .createQuery("FROM GameEntity WHERE id = :id AND deleted = false", GameEntity.class)
                 .setParameter("id", id)
                 .uniqueResult();
     }
+
     public GameEntity getGameByGameCode(String gameCode, int status) {
         return this.sessionFactory.getCurrentSession()
                 .createQuery("FROM GameEntity WHERE gameCode = :gameCode AND status = :status AND deleted = false", GameEntity.class)
@@ -98,48 +99,61 @@ public class Persist {
                 .setParameter("status", status)
                 .uniqueResult();
     }
+
     public List<UserEntity> getPlayersByGameId(int gameId) {
         return this.sessionFactory.getCurrentSession()
-                .createQuery(
-                        "SELECT gp.player FROM GamePlayerEntity gp " +
-                                "WHERE gp.game.id = :id",
-                        UserEntity.class)
+                .createQuery("SELECT gp.player FROM GamePlayerEntity gp WHERE gp.game.id = :id", UserEntity.class)
                 .setParameter("id", gameId)
                 .getResultList();
     }
+
     public GamePlayerEntity getGamePlayerByGameAndUser(int gameId, int userId) {
         return this.sessionFactory.getCurrentSession()
-                .createQuery("FROM GamePlayerEntity gp " +
-                            "WHERE gp.game.id = :gameId " +
-                            "AND gp.player.id = :userId", GamePlayerEntity.class)
+                .createQuery("FROM GamePlayerEntity gp WHERE gp.game.id = :gameId AND gp.player.id = :userId", GamePlayerEntity.class)
                 .setParameter("gameId", gameId)
                 .setParameter("userId", userId)
                 .uniqueResult();
     }
+
     public List<GamePlayerEntity> getGamePlayersByGameId(int gameId) {
         return sessionFactory.getCurrentSession()
-                .createQuery(
-                        "FROM GamePlayerEntity gp WHERE gp.game.id = :id",
-                        GamePlayerEntity.class)
+                .createQuery("FROM GamePlayerEntity gp WHERE gp.game.id = :id", GamePlayerEntity.class)
                 .setParameter("id", gameId)
                 .getResultList();
     }
+
     public boolean doesGameCodeExist(String gameCode) {
         Long count = sessionFactory.getCurrentSession()
-                .createQuery(
-                        "SELECT COUNT(g.id) FROM GameEntity g WHERE g.gameCode = :gameCode AND g.deleted = false",
-                        Long.class
-                )
+                .createQuery("SELECT COUNT(g.id) FROM GameEntity g WHERE g.gameCode = :gameCode AND g.deleted = false", Long.class)
                 .setParameter("gameCode", gameCode)
                 .uniqueResult();
-
         return count != null && count > 0;
     }
 
+    public List<QuestionTemplateEntity> getTemplatesByOperationAndDifficulty(int operationType, int difficultyLevel) {
+        return sessionFactory.getCurrentSession()
+                .createQuery("FROM QuestionTemplateEntity WHERE operationType = :op AND difficultyLevel <= :diff AND deleted = false", QuestionTemplateEntity.class)
+                .setParameter("op", operationType)
+                .setParameter("diff", difficultyLevel)
+                .getResultList();
+    }
 
+    public List<QuestionTemplateEntity> getAllTemplates() {
+        return sessionFactory.getCurrentSession()
+                .createQuery("FROM QuestionTemplateEntity WHERE deleted = false", QuestionTemplateEntity.class)
+                .getResultList();
+    }
 
+    public List<QuestionWordEntity> getWordsByCategory(String category) {
+        return sessionFactory.getCurrentSession()
+                .createQuery("FROM QuestionWordEntity WHERE category = :category AND deleted = false", QuestionWordEntity.class)
+                .setParameter("category", category)
+                .getResultList();
+    }
 
-
-
-
+    public List<QuestionWordEntity> getAllWords() {
+        return sessionFactory.getCurrentSession()
+                .createQuery("FROM QuestionWordEntity WHERE deleted = false", QuestionWordEntity.class)
+                .getResultList();
+    }
 }

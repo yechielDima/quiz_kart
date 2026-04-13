@@ -26,15 +26,14 @@ public class GamePlayerModel {
         this.finishTime = gp.getFinishTime();
     }
 
-    public GamePlayerModel(PlayerRuntimeState prs) {
-        this.id = prs.getUserId();
-        this.fullName = prs.getFullName();
+    public GamePlayerModel(int userId, String fullName, PlayerRuntimeState prs) {
+        this.id = userId;
+        this.fullName = fullName;
         this.score = prs.getScore();
         this.correctAnswers = prs.getCorrectAnswers();
         this.streak = prs.getStreak();
         this.wrongAnswers = prs.getWrongAnswers();
         this.finished = prs.isFinished();
-
     }
 
     public int getWrongAnswers() {
@@ -61,14 +60,43 @@ public class GamePlayerModel {
         this.finishTime = finishTime;
     }
 
-    public int getId() { return id; }
-    public void setId(int id) { this.id = id; }
-    public String getFullName() { return fullName; }
-    public void setFullName(String fullName) { this.fullName = fullName; }
-    public int getScore() { return score; }
-    public void setScore(int score) { this.score = score; }
-    public int getCorrectAnswers() { return correctAnswers; }
-    public void setCorrectAnswers(int correctAnswers) { this.correctAnswers = correctAnswers; }
-    public int getStreak() { return streak; }
-    public void setStreak(int streak) { this.streak = streak; }
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public int getScore() {
+        return score;
+    }
+
+    public void setScore(int score) {
+        this.score = score;
+    }
+
+    public int getCorrectAnswers() {
+        return correctAnswers;
+    }
+
+    public void setCorrectAnswers(int correctAnswers) {
+        this.correctAnswers = correctAnswers;
+    }
+
+    public int getStreak() {
+        return streak;
+    }
+
+    public void setStreak(int streak) {
+        this.streak = streak;
+    }
 }

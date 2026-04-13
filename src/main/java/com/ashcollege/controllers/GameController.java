@@ -6,10 +6,11 @@ import com.ashcollege.responses.*;
 import com.ashcollege.service.Persist;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import javax.annotation.PostConstruct;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
+import static com.ashcollege.utils.Constants.*;
 import static com.ashcollege.utils.Errors.*;
 
 @RestController
@@ -24,110 +25,149 @@ public class GameController {
     @Autowired
     private SseService sseService;
 
-    @PostConstruct
-    public void init() {
-    }
+    @Autowired
+    private QuestionGeneratorService questionGenerator;
 
-    @RequestMapping("/get-question")
-    public BasicResponse getQuestion(String token, int gameId) {
-        UserEntity user = persist.getUserByToken(token);
+    @PostMapping("/get-question")
+    public BasicResponse getQuestion(@RequestBody com.ashcollege.requests.GameActionRequest request) {
+        UserEntity user = persist.getUserByToken(request.getToken());
         if (user == null) return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
 
-        ActiveGameState gameState = activeGameRegistry.getGame(gameId);
-        if (gameState == null) {
-            return new BasicResponse(false, ERROR_GAME_NOT_FOUND); // המשחק לא קיים
-        }
-        if(!gameState.isRunning()){
-            return new BasicResponse(false, ERROR_GAME_NOT_ACTIVE); // המשחק לא רץ
-
-        }
+        ActiveGameState gameState = activeGameRegistry.getGame(request.getGameId());
+        if (gameState == null) return new BasicResponse(false, ERROR_GAME_NOT_FOUND);
+        if (!gameState.isRunning()) return new BasicResponse(false, ERROR_GAME_NOT_ACTIVE);
+        if (gameState.isFinished()) return new BasicResponse(false, ERROR_GAME_FINISHED);
 
         PlayerRuntimeState playerState = gameState.getPlayers().get(user.getId());
-        if (playerState == null) return new BasicResponse(false, ERROR_NO_PREMITION);
+        if (playerState == null) return new BasicResponse(false, ERROR_NO_PERMISSION);
 
+        synchronized (playerState) {
+            MathQuestionGenerator.QuestionData qData = playerState.getCurrentQuestion();
 
-        // --- התיקון הקריטי למניעת ריענון: נבדוק אם כבר יש שאלה! ---
-        MathQuestionGenerator.QuestionData qData = playerState.getCurrentQuestion();
+            if (qData == null) {
+                GameEntity gameEntity = persist.getGameById(request.getGameId());
+                int difficulty = 0;
+                if (gameEntity != null) {
+                    difficulty = Math.max(0, Math.min(2, gameEntity.getGameType()));
+                }
 
-        if (qData == null) {
-            // רק אם אין שאלה פעילה, נגריל אחת חדשה
-            /*כשנשנה את היוצר שאלות אז צריך לזכור להכניס פה פרמטרים*/
+                qData = questionGenerator.generateQuestion(difficulty);
+                playerState.setCurrentQuestion(qData);
+                playerState.setCurrentQuestionStartTime(System.currentTimeMillis());
+                playerState.setCurrentCorrectAnswer(qData.correctAnswer);
+            }
 
-            qData = MathQuestionGenerator.generateQuestion();
-            playerState.setCurrentQuestion(qData);
-            playerState.setCurrentQuestionStartTime(System.currentTimeMillis());
-            playerState.setCurrentCorrectAnswer(qData.correctAnswer);
+            return new QuestionResponse(true, null, qData.questionText, qData.options);
         }
-
-        // שולחים ללקוח את השאלה (בין אם היא חדשה ובין אם זו אותה אחת מקודם)
-        return new QuestionResponse(true, null, qData.questionText, qData.options);
     }
 
-    @RequestMapping("/submit-answer")
-    public BasicResponse submitAnswer(String token, int gameId, int answer) {
-        // 1. אימות ראשוני
-        UserEntity user = persist.getUserByToken(token);
+    @PostMapping("/submit-answer")
+    public BasicResponse submitAnswer(@RequestBody com.ashcollege.requests.GameActionRequest request) {
+        UserEntity user = persist.getUserByToken(request.getToken());
         if (user == null) return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
 
-        ActiveGameState gameState = activeGameRegistry.getGame(gameId);
-        if (gameState == null) {
-            return new BasicResponse(false, ERROR_GAME_NOT_FOUND); // המשחק לא קיים
-        }
-        if(!gameState.isRunning()){
-            return new BasicResponse(false, ERROR_GAME_NOT_ACTIVE); // המשחק לא רץ
+        ActiveGameState gameState = activeGameRegistry.getGame(request.getGameId());
+        if (gameState == null) return new BasicResponse(false, ERROR_GAME_NOT_FOUND);
+        if (!gameState.isRunning()) return new BasicResponse(false, ERROR_GAME_NOT_ACTIVE);
+        if (gameState.isFinished()) return new BasicResponse(false, ERROR_GAME_FINISHED);
 
-        }
         PlayerRuntimeState playerState = gameState.getPlayers().get(user.getId());
-        if (playerState == null) return new BasicResponse(false, ERROR_NO_PREMITION);
+        if (playerState == null) return new BasicResponse(false, ERROR_NO_PERMISSION);
 
-        // 2. משיכת השאלה והזמן
-        MathQuestionGenerator.QuestionData askedQuestion = playerState.getCurrentQuestion();
-        if (askedQuestion == null) return new BasicResponse(false, ERROR_MISSING_VALUES); // אין שאלה פעילה
+        synchronized (playerState) {
+            MathQuestionGenerator.QuestionData askedQuestion = playerState.getCurrentQuestion();
+            if (askedQuestion == null) return new BasicResponse(false, ERROR_MISSING_VALUES);
 
-        // 3. עצירת השעון
-        long timeTakenMs = System.currentTimeMillis() - playerState.getCurrentQuestionStartTime();
+            long timeTakenMs = System.currentTimeMillis() - playerState.getCurrentQuestionStartTime();
+            boolean isCorrect = (request.getAnswer() != null && request.getAnswer() == askedQuestion.correctAnswer);
+            int pointsEarned = 0;
 
-        // 4. בדיקה וניקוד
-        boolean isCorrect = (answer == askedQuestion.correctAnswer);
-        int pointsEarned = 0;
+            if (isCorrect) {
+                int streakBonus = Math.min(playerState.getStreak() * 10, 50);
+                int timeBonus = timeTakenMs < 5000 ? 20 : (timeTakenMs < 10000 ? 10 : 0);
+                pointsEarned = 100 + streakBonus + timeBonus;
 
-        if (isCorrect) {
-            pointsEarned = 100; // תמיד אפשר לעשות פה בונוס (למשל אם timeTakenMs < 3000 לתת 2 נקודות)
-            playerState.setScore(playerState.getScore() + pointsEarned);
-            playerState.setCorrectAnswers(playerState.getCorrectAnswers() + 1);
+                playerState.setScore(playerState.getScore() + pointsEarned);
+                playerState.setCorrectAnswers(playerState.getCorrectAnswers() + 1);
+                playerState.setStreak(playerState.getStreak() + 1);
 
-            // 5. שידור לכולם ב-SSE כדי להזיז את המכונית
-            GamePlayerModel updatedPlayer = new GamePlayerModel(playerState);
-            Map<String, Object> eventData = new java.util.HashMap<>();
-            eventData.put("type", "PLAYER_MOVED");
-            eventData.put("player", updatedPlayer);
+                GamePlayerModel updatedPlayer = new GamePlayerModel(user.getId(), user.getFullName(), playerState);
 
-            sseService.broadcastToGame(gameId, "gameEvent", eventData);
-        } else {
-            // עדכון של כמות הטעויות בזיכרון
-            playerState.setWrongAnswers(playerState.getWrongAnswers() + 1);
+                Map<String, Object> eventData = new HashMap<>();
+                eventData.put("type", "PLAYER_MOVED");
+                eventData.put("player", updatedPlayer);
+                sseService.broadcastToGame(request.getGameId(), "gameEvent", eventData);
+
+                playerState.setCurrentQuestion(null);
+
+                if (playerState.getScore() >= gameState.getTrackLength()) {
+                    playerState.setFinished(true);
+                    finishGame(request.getGameId(), gameState, user.getId(), user.getFullName());
+                }
+
+            } else {
+                playerState.setWrongAnswers(playerState.getWrongAnswers() + 1);
+                playerState.setStreak(0);
+            }
+
+            QuestionLog log = new QuestionLog(
+                    askedQuestion.questionText,
+                    1,
+                    request.getAnswer() != null ? request.getAnswer() : -1,
+                    askedQuestion.correctAnswer,
+                    isCorrect,
+                    timeTakenMs,
+                    pointsEarned
+            );
+            playerState.getAnswerHistory().add(log);
+
+            return isCorrect
+                    ? new BasicResponse(true, null)
+                    : new BasicResponse(false, ERROR_WRONG_ANSWER);
+        }
+    }
+
+    public void endGameManually(int gameId, ActiveGameState gameState) {
+        finishGame(gameId, gameState, 0, null);
+    }
+
+    private void finishGame(int gameId, ActiveGameState gameState, int winnerId, String winnerName) {
+        if (gameState.isFinished()) return;
+
+        gameState.setRunning(false);
+        gameState.setFinished(true);
+
+        GameEntity game = persist.getGameById(gameId);
+        if (game != null) {
+            game.setStatus(FINISHED);
+            game.setFinishedAt(new Date());
+            persist.save(game);
         }
 
-        // 6. תיעוד ההיסטוריה למורה/מנהל (לשמירה עתידית ב-DB)
-        QuestionLog log = new QuestionLog(
-                askedQuestion.questionText,
-                1, // סוג שאלה (נניח 1 זה חיבור)
-                answer,
-                askedQuestion.correctAnswer,
-                isCorrect,
-                timeTakenMs,
-                pointsEarned
-        );
-        playerState.getAnswerHistory().add(log);
+        List<Map<String, Object>> rankings = gameState.getPlayers().entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue().getScore(), a.getValue().getScore()))
+                .map(entry -> {
+                    PlayerRuntimeState prs = entry.getValue();
+                    Map<String, Object> playerData = new HashMap<>();
+                    playerData.put("id", entry.getKey());
+                    playerData.put("fullName", prs.getFullName());
+                    playerData.put("score", prs.getScore());
+                    playerData.put("correctAnswers", prs.getCorrectAnswers());
+                    playerData.put("wrongAnswers", prs.getWrongAnswers());
+                    playerData.put("streak", prs.getStreak());
+                    return playerData;
+                })
+                .collect(Collectors.toList());
 
-        // 7. איפוס השאלה כדי למנוע מענה כפול או רמאות
-        playerState.setCurrentQuestion(null);
+        Map<String, Object> gameOverData = new HashMap<>();
+        gameOverData.put("type", "GAME_OVER");
+        gameOverData.put("rankings", rankings);
 
-        // מחזירים ללקוח אם ענה נכון או לא (כדי להראות לו "כל הכבוד!" או "טעות!")
-        if (isCorrect) {
-            return new BasicResponse(true, null);
-        } else {
-            return new BasicResponse(false, ERROR_WRONG_ANSWER); // ודא שיש לך קבוע ERROR_WRONG_ANSWER ב-Errors.java
+        if (winnerId > 0 && winnerName != null) {
+            gameOverData.put("winnerId", winnerId);
+            gameOverData.put("winnerName", winnerName);
         }
+
+        sseService.broadcastToGame(gameId, "gameEvent", gameOverData);
     }
 }

@@ -1,27 +1,21 @@
 package com.ashcollege.Engine;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class PlayerRuntimeState {
 
     private int userId;
     private String username;
     private String fullName;
-
     private int score;
-
     private int correctAnswers;
     private int wrongAnswers;
     private int streak;
-    // השאלה שהרגע הוגרלה לשחקן והוא עדיין לא ענה עליה
     private MathQuestionGenerator.QuestionData currentQuestion;
-    // בתוך PlayerRuntimeState.java להוסיף:
     private int currentCorrectAnswer;
-
-    private final List<QuestionLog> answerHistory = new ArrayList<>();
+    private final List<QuestionLog> answerHistory = new CopyOnWriteArrayList<>();
     private boolean finished;
-    // --- התוספת שחסרה למדידת הזמנים ---
     private long currentQuestionStartTime;
 
     public long getCurrentQuestionStartTime() {
@@ -31,7 +25,6 @@ public class PlayerRuntimeState {
     public void setCurrentQuestionStartTime(long currentQuestionStartTime) {
         this.currentQuestionStartTime = currentQuestionStartTime;
     }
-    // ---------------------------------
 
     public int getCurrentCorrectAnswer() {
         return currentCorrectAnswer;
@@ -104,6 +97,7 @@ public class PlayerRuntimeState {
     public void setFinished(boolean finished) {
         this.finished = finished;
     }
+
     public MathQuestionGenerator.QuestionData getCurrentQuestion() {
         return currentQuestion;
     }

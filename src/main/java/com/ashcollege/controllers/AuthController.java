@@ -7,75 +7,83 @@ import com.ashcollege.responses.LoginResponse;
 import com.ashcollege.service.Persist;
 import com.ashcollege.utils.GeneralUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.annotation.PostConstruct;
-
-import static com.ashcollege.utils.Constants.USER_TYPE_CLIENT;
 import static com.ashcollege.utils.Errors.*;
-import static com.ashcollege.utils.Errors.ERROR_MISSING_VALUES;
 
 @RestController
 public class AuthController {
+
     @Autowired
     private Persist persist;
 
-    @PostConstruct
-    public void init() {
-    }
-
-    @RequestMapping("/login")
-    public BasicResponse getUser (String username, String password) {
+    @PostMapping("/login")
+    public BasicResponse getUser(@RequestBody com.ashcollege.requests.LoginRequest request) {
         try {
-            if (username != null && password != null) {
-                UserEntity userEntity = persist.getUserByUsernameAndPassword(username, password);
-                if (userEntity != null) {
-                    String token = GeneralUtils.hashMd5(username, password);
-                    userEntity.setToken(token);
-                    persist.save(userEntity);
-                    return new LoginResponse(true, null, 1, token, userEntity.getId());
-                } else {
-                    return new BasicResponse(false,  ERROR_WRONG_CREDENTIALS);
-                }
-            } else {
-                return new BasicResponse(false, ERROR_MISSING_USERNAME_OR_PASSWORD);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-    @RequestMapping("/signup")
-    public BasicResponse addUser(String username,String password,String fullName) {
-        try {
-            if (username != null  && password != null && fullName != null ) {
-                UserEntity userEntity = persist.getUserByUsername(username);
-                if (userEntity != null) {
-                    return new BasicResponse(false,ERROR_USERNAME_ALREADY_EXISTS);
-                }else {
-
-                    UserEntity user = new UserEntity();
-                    user.setUsername(username);
-                    user.setPassword(password);
-                    user.setFullName(fullName);
-                    String token = GeneralUtils.hashMd5(username, password);
-                    user.setToken(token);
-                    persist.save(user);
-                    return new LoginResponse(true, null, 1, token, user.getId());
-                }
-            }else {
+            if (request.getUsername() == null || request.getUsername().trim().isEmpty()
+                    || request.getPassword() == null || request.getPassword().trim().isEmpty()) {
                 return new BasicResponse(false, ERROR_MISSING_VALUES);
             }
 
-        } catch (Exception e){
+            String username = request.getUsername().trim();
+            String hashedPass = GeneralUtils.hashPassword(username, request.getPassword());
+            UserEntity userEntity = persist.getUserByUsernameAndPassword(username, hashedPass);
+
+            if (userEntity != null) {
+                String token = GeneralUtils.hashPassword(username, request.getPassword() + System.currentTimeMillis());
+                userEntity.setToken(token);
+                persist.save(userEntity);
+                return new LoginResponse(true, null, token, userEntity.getId());
+            } else {
+                return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
+            }
+        } catch (Exception e) {
             e.printStackTrace();
+            return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
         }
-        return null;
     }
 
-    @RequestMapping("/get-default-params")
-    public BasicResponse getDefaultParams (String token) {
+    @PostMapping("/signup")
+    public BasicResponse addUser(@RequestBody com.ashcollege.requests.SignupRequest request) {
+        try {
+            if (request.getUsername() == null || request.getUsername().trim().isEmpty()
+                    || request.getPassword() == null || request.getPassword().length() != 6
+                    || request.getFullName() == null || request.getFullName().trim().isEmpty()) {
+                return new BasicResponse(false, ERROR_MISSING_VALUES);
+            }
+
+            String username = request.getUsername().trim();
+            String fullName = request.getFullName().trim();
+
+            UserEntity userEntity = persist.getUserByUsername(username);
+            if (userEntity != null) {
+                return new BasicResponse(false, ERROR_USERNAME_ALREADY_EXISTS);
+            }
+
+            UserEntity user = new UserEntity();
+            user.setUsername(username);
+            user.setPassword(GeneralUtils.hashPassword(username, request.getPassword()));
+            user.setFullName(fullName);
+
+            String token = GeneralUtils.hashPassword(username, request.getPassword() + System.currentTimeMillis());
+            user.setToken(token);
+            persist.save(user);
+            return new LoginResponse(true, null, token, user.getId());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new BasicResponse(false, ERROR_MISSING_VALUES);
+        }
+    }
+
+    @GetMapping("/get-default-params")
+    public BasicResponse getDefaultParams(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            return new BasicResponse(false, ERROR_MISSING_VALUES);
+        }
         UserEntity userEntity = persist.getUserByToken(token);
         if (userEntity != null) {
             return new DefaultParamResponse(true, null, userEntity);
@@ -83,14 +91,4 @@ public class AuthController {
             return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
         }
     }
-
-
-
-
-
-
-
-
-
-
 }

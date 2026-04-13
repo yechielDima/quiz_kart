@@ -1,12 +1,14 @@
 package com.ashcollege.Engine;
 
 import com.ashcollege.entities.GamePlayerEntity;
+import com.ashcollege.entities.PlayerAnswerEntity;
 import com.ashcollege.service.Persist;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -27,8 +29,7 @@ public class GameLoopService {
 
     @PostConstruct
     public void startLoop() {
-        // הלופ שומר את הסטייט בד"ב כל חמש שניות
-        scheduler.scheduleAtFixedRate(this::syncStateToDatabase, 0, 5000, TimeUnit.MILLISECONDS);
+        scheduler.scheduleAtFixedRate(this::syncStateToDatabase, 5, 5, TimeUnit.SECONDS);
     }
 
     private void syncStateToDatabase() {
@@ -39,11 +40,35 @@ public class GameLoopService {
                 if (dbPlayers != null) {
                     for (GamePlayerEntity gp : dbPlayers) {
                         PlayerRuntimeState liveState = gameState.getPlayers().get(gp.getPlayer().getId());
+
                         if (liveState != null) {
                             gp.setScore(liveState.getScore());
                             gp.setCorrectAnswers(liveState.getCorrectAnswers());
-                            // נצטרך להוסיף פה עוד שדות כדי לעדכן הכל בד"ב כולל נקודות וסטרייקים וכל מה שיש ב GamePlayerEntity
+                            gp.setWrongAnswers(liveState.getWrongAnswers());
+                            gp.setStreak(liveState.getStreak());
+                            gp.setFinished(liveState.isFinished());
                             persist.save(gp);
+
+                            List<QuestionLog> history = liveState.getAnswerHistory();
+
+                            if (!history.isEmpty()) {
+                                List<QuestionLog> historyCopy = new ArrayList<>(history);
+
+                                for (QuestionLog log : historyCopy) {
+                                    PlayerAnswerEntity answerEntity = new PlayerAnswerEntity();
+                                    answerEntity.setGamePlayer(gp);
+                                    answerEntity.setQuestionText(log.getQuestionText());
+                                    answerEntity.setQuestionType(log.getQuestionType());
+                                    answerEntity.setPlayerAnswer(log.getPlayerAnswer());
+                                    answerEntity.setCorrectAnswer(log.getCorrectAnswer());
+                                    answerEntity.setCorrect(log.isCorrect());
+                                    answerEntity.setTimeTakenMs(log.getTimeTakenMs());
+                                    answerEntity.setPointsEarned(log.getPointsEarned());
+                                    persist.save(answerEntity);
+                                }
+
+                                history.removeAll(historyCopy);
+                            }
                         }
                     }
                 }

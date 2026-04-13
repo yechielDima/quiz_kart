@@ -1,13 +1,21 @@
 package com.ashcollege.responses;
 
+public class NewGameResponse extends BasicResponse {
+    private int gameId;
 
-public class NewGameResponse extends BasicResponse{
-    private int id;
-    public NewGameResponse (boolean success, Integer errorCode, int id) {
-
-        super(success, errorCode);
-        this.id = id;
+    public NewGameResponse() {
     }
-    public int getId() {return id;}
-    public void setId(int id) {this.id = id;}
+
+    public NewGameResponse(boolean success, Integer errorCode, int gameId) {
+        super(success, errorCode);
+        this.gameId = gameId;
+    }
+
+    public int getGameId() {
+        return gameId;
+    }
+
+    public void setGameId(int gameId) {
+        this.gameId = gameId;
+    }
 }

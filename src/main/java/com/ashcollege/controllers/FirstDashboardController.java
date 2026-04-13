@@ -10,63 +10,107 @@ import com.ashcollege.responses.*;
 import com.ashcollege.service.Persist;
 import com.ashcollege.utils.GeneralUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-
-import javax.annotation.PostConstruct;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import static com.ashcollege.utils.Constants.*;
 import static com.ashcollege.utils.Errors.*;
 
-import java.util.Map;
 @RestController
 public class FirstDashboardController {
+
     @Autowired
     private Persist persist;
+
     @Autowired
     private ActiveGameRegistry activeGameRegistry;
+
     @Autowired
     private SseService sseService;
 
-    @PostConstruct
-    public void init() {
+    @Autowired
+    private GameController gameController;
+
+    private synchronized ActiveGameState getOrReviveGame(GameEntity game) {
+        ActiveGameState activeGame = activeGameRegistry.getGame(game.getId());
+        if (activeGame == null) {
+            activeGame = new ActiveGameState();
+            activeGame.setGameId(game.getId());
+            activeGame.setRunning(game.getStatus() == STARTED);
+            activeGame.setFinished(game.getStatus() == FINISHED);
+            activeGame.setTrackLength(game.getTrackLength());
+            activeGame.setMaxPlayers(game.getMaxPlayers());
+
+            List<GamePlayerEntity> dbPlayers = persist.getGamePlayersByGameId(game.getId());
+            if (dbPlayers != null) {
+                for (GamePlayerEntity gp : dbPlayers) {
+                    PlayerRuntimeState prs = new PlayerRuntimeState();
+                    prs.setUserId(gp.getPlayer().getId());
+                    prs.setFullName(gp.getPlayer().getFullName());
+                    prs.setUsername(gp.getPlayer().getUsername());
+                    prs.setScore(gp.getScore());
+                    prs.setCorrectAnswers(gp.getCorrectAnswers());
+                    prs.setWrongAnswers(gp.getWrongAnswers());
+                    prs.setStreak(gp.getStreak());
+                    activeGame.getPlayers().put(gp.getPlayer().getId(), prs);
+                }
+            }
+            activeGameRegistry.addGame(activeGame);
+        }
+        return activeGame;
     }
 
-    @RequestMapping("/new-game")
-    public BasicResponse createGame(String token, String newGameName, int gameType) {
-        if (token == null || newGameName == null || newGameName.trim().isEmpty()) {
+    @PostMapping("/new-game")
+    public BasicResponse createGame(@RequestBody com.ashcollege.requests.NewGameRequest request) {
+        if (request.getToken() == null || request.getNewGameName() == null || request.getNewGameName().trim().isEmpty()) {
             return new BasicResponse(false, ERROR_MISSING_VALUES);
         }
 
-        UserEntity userEntity = persist.getUserByToken(token);
-        if (userEntity != null) {
+        int gameType = request.getGameType();
+        if (gameType < 0 || gameType > 2) {
+            return new BasicResponse(false, ERROR_MISSING_VALUES);
+        }
+
+        UserEntity userEntity = persist.getUserByToken(request.getToken());
+        if (userEntity == null) {
+            return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
+        }
+
+        try {
             GameEntity newGame = new GameEntity();
-            newGame.setGameName(newGameName);
+            newGame.setGameName(request.getNewGameName().trim());
             newGame.setGameType(gameType);
             newGame.setCreator(userEntity);
             newGame.setStatus(WAITING);
             newGame.setMaxPlayers(MAX_PLAYERS);
-            newGame.setTrackLength(1000);
+            newGame.setTrackLength(TRACK_LENGTH);
             newGame.setGameCode(generateUniqueGameCode());
 
             persist.save(newGame);
+
             ActiveGameState activeGameState = new ActiveGameState();
             activeGameState.setGameId(newGame.getId());
             activeGameState.setRunning(false);
             activeGameState.setFinished(false);
-            activeGameState.setTrackLength(1000);
+            activeGameState.setTrackLength(TRACK_LENGTH);
             activeGameState.setMaxPlayers(MAX_PLAYERS);
             activeGameRegistry.addGame(activeGameState);
+
             return new NewGameResponse(true, null, newGame.getId());
-        } else {
-            return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new BasicResponse(false, ERROR_MISSING_VALUES);
         }
     }
 
-    @RequestMapping("/get-game")
+    @GetMapping("/get-game")
     public BasicResponse getGame(String token, int id) {
         UserEntity userEntity = persist.getUserByToken(token);
         if (userEntity == null) return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
@@ -74,105 +118,105 @@ public class FirstDashboardController {
         GameEntity game = persist.getGameById(id);
         if (game == null) return new BasicResponse(false, ERROR_MISSING_VALUES);
 
-        ActiveGameState activeGameState = activeGameRegistry.getGame(id);
-        List<GamePlayerModel> securePlayers = new java.util.ArrayList<>();
+        ActiveGameState activeGameState = getOrReviveGame(game);
 
-        if (activeGameState != null) {
-            game.setStatus(activeGameState.isRunning() ? STARTED : WAITING);
-            for (PlayerRuntimeState liveState : activeGameState.getPlayers().values()) {
-                securePlayers.add(new GamePlayerModel(liveState));
-            }
-        } else {
-            // שליפה מהד"ב של הנתונים למקרה שרוצים אותם אחרי שהמשחק הסתיים...
-            List<GamePlayerEntity> dbPlayers = persist.getGamePlayersByGameId(id);
+        List<GamePlayerModel> securePlayers = new java.util.ArrayList<>();
+        List<GamePlayerEntity> dbPlayers = persist.getGamePlayersByGameId(id);
+        if (dbPlayers != null) {
             for (GamePlayerEntity gp : dbPlayers) {
                 securePlayers.add(new GamePlayerModel(gp));
             }
         }
 
         GameModel secureGameModel = new GameModel(game, securePlayers);
+
+        if (activeGameState.isFinished()) {
+            secureGameModel.setStatus(FINISHED);
+        } else if (activeGameState.isRunning()) {
+            secureGameModel.setStatus(STARTED);
+        } else {
+            secureGameModel.setStatus(WAITING);
+        }
+
         return new GameResponse(true, null, secureGameModel);
     }
 
-    @RequestMapping("/join-game")
-    public BasicResponse joinGame(String token, String gameCode) {
-        if (token == null || gameCode == null || gameCode.trim().isEmpty()) {
+    @PostMapping("/join-game")
+    public BasicResponse joinGame(@RequestBody com.ashcollege.requests.JoinGameRequest request) {
+        if (request.getToken() == null || request.getGameCode() == null || request.getGameCode().trim().isEmpty()) {
             return new BasicResponse(false, ERROR_MISSING_VALUES);
         }
 
-        UserEntity userEntity = persist.getUserByToken(token);
-        if (userEntity != null) {
-            GameEntity game = persist.getGameByGameCode(gameCode,WAITING);
+        try {
+            UserEntity user = persist.getUserByToken(request.getToken());
+            if (user == null) return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
 
-            if (game != null) {
+            GameEntity game = persist.getGameByGameCode(request.getGameCode().trim(), STARTED);
+            if (game == null) {
+                game = persist.getGameByGameCode(request.getGameCode().trim(), WAITING);
+            }
+            if (game == null) return new BasicResponse(false, ERROR_GAME_NOT_FOUND);
 
-                GamePlayerEntity existingPlayer =
-                        persist.getGamePlayerByGameAndUser(game.getId(), userEntity.getId());
+            if (game.getStatus() == FINISHED) {
+                return new BasicResponse(false, ERROR_GAME_FINISHED);
+            }
 
-                if (existingPlayer != null) {
-                    return new NewGameResponse(true, null, game.getId());
-                }
-                //ההוספה של השחקן לד"ב
-                List<UserEntity> players = persist.getPlayersByGameId(game.getId());
-                if (players != null && players.size() < MAX_PLAYERS) {
-                    GamePlayerEntity gamePlayerEntity = new GamePlayerEntity();
-                    gamePlayerEntity.setGame(game);
-                    gamePlayerEntity.setPlayer(userEntity);
-                    gamePlayerEntity.setScore(0);
+            GamePlayerEntity existingPlayer = persist.getGamePlayerByGameAndUser(game.getId(), user.getId());
 
-                    persist.save(gamePlayerEntity);
-                    // ההוספה של השחקן לסטייט
-                    ActiveGameState activeGameState = activeGameRegistry.getGame(game.getId());
-                    if (activeGameState != null) {
-                        PlayerRuntimeState playerState = new PlayerRuntimeState();
-                        playerState.setUserId(userEntity.getId());
-                        playerState.setUsername(userEntity.getUsername());
-                        playerState.setFullName(userEntity.getFullName());
-                        playerState.setScore(0);
-                        activeGameState.getPlayers().put(userEntity.getId(), playerState);
-
-                        List<GamePlayerModel> allPlayersNow = new java.util.ArrayList<>();
-                        for (PlayerRuntimeState state : activeGameState.getPlayers().values()) {
-                            allPlayersNow.add(new GamePlayerModel(state));
-                        }
-
-                        // שליחת הודעה לכולם על ההצטרפות ועדכון  של הרשימה אצלהם על ידי SSE
-                        // ... (אחרי שהוספת את השחקן ל-activeGameState ויצרת את רשימת allPlayersNow)
-
-                        Map<String, Object> eventData = new java.util.HashMap<>();
-                        eventData.put("type", "PLAYERS_LIST_UPDATE");
-                        eventData.put("players", allPlayersNow);
-
-                        // שידור אסינכרוני לכל מי שמחובר לחדר - ללא חשש מתקיעות!
-                        sseService.broadcastToGame(game.getId(), "gameEvent", eventData);
-
-                        return new NewGameResponse(true, null, game.getId());
-
-                    }
-
-                    return new NewGameResponse(true, null, game.getId());
-                } else {
+            if (existingPlayer == null) {
+                List<GamePlayerEntity> currentPlayers = persist.getGamePlayersByGameId(game.getId());
+                if (currentPlayers != null && currentPlayers.size() >= MAX_PLAYERS) {
                     return new BasicResponse(false, ERROR_GAME_IS_FULL);
                 }
-            } else {
-                return new BasicResponse(false, ERROR_MISSING_VALUES);
+
+                GamePlayerEntity newPlayer = new GamePlayerEntity();
+                newPlayer.setGame(game);
+                newPlayer.setPlayer(user);
+                newPlayer.setScore(0);
+                newPlayer.setCorrectAnswers(0);
+                newPlayer.setWrongAnswers(0);
+                newPlayer.setStreak(0);
+                newPlayer.setFinished(false);
+
+                persist.save(newPlayer);
+                persist.flush();
+
+                ActiveGameState activeGame = getOrReviveGame(game);
+
+                PlayerRuntimeState playerState = new PlayerRuntimeState();
+                playerState.setUserId(user.getId());
+                playerState.setFullName(user.getFullName());
+                playerState.setUsername(user.getUsername());
+                activeGame.getPlayers().put(user.getId(), playerState);
+
+                List<GamePlayerModel> livePlayers = new java.util.ArrayList<>();
+                List<GamePlayerEntity> currentPlayersUpdated = persist.getGamePlayersByGameId(game.getId());
+                for (GamePlayerEntity gp : currentPlayersUpdated) {
+                    livePlayers.add(new GamePlayerModel(gp));
+                }
+
+                Map<String, Object> joinEventData = new java.util.HashMap<>();
+                joinEventData.put("type", "PLAYERS_LIST_UPDATE");
+                joinEventData.put("players", livePlayers);
+
+                sseService.broadcastToGame(game.getId(), "gameEvent", joinEventData);
             }
-        } else {
-            return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
+
+            return new NewGameResponse(true, null, game.getId());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new BasicResponse(false, ERROR_MISSING_VALUES);
         }
     }
 
-    @RequestMapping("/start-game")
-    public BasicResponse startGame(String token, int gameId) {
-        UserEntity userEntity = persist.getUserByToken(token);
-        if (userEntity == null) {
-            return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
-        }
+    @PostMapping("/start-game")
+    public BasicResponse startGame(@RequestBody com.ashcollege.requests.StartGameRequest request) {
+        UserEntity userEntity = persist.getUserByToken(request.getToken());
+        if (userEntity == null) return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
 
-        GameEntity game = persist.getGameById(gameId);
-        if (game == null) {
-            return new BasicResponse(false, ERROR_MISSING_VALUES);
-        }
+        GameEntity game = persist.getGameById(request.getGameId());
+        if (game == null) return new BasicResponse(false, ERROR_MISSING_VALUES);
 
         if (game.getCreator() == null || game.getCreator().getId() != userEntity.getId()) {
             return new BasicResponse(false, ERROR_ONLY_CREATOR_CAN_START_GAME);
@@ -182,30 +226,45 @@ public class FirstDashboardController {
             return new BasicResponse(false, ERROR_GAME_ALREADY_STARTED);
         }
 
-        ActiveGameState activeGameState = activeGameRegistry.getGame(gameId);
-        if (activeGameState == null) {
-            return new BasicResponse(false, ERROR_GAME_NOT_FOUND);
+        List<GamePlayerEntity> players = persist.getGamePlayersByGameId(game.getId());
+        if (players == null || players.size() < MIN_PLAYERS) {
+            return new BasicResponse(false, ERROR_NOT_ENOUGH_PLAYERS);
         }
 
+        ActiveGameState activeGameState = getOrReviveGame(game);
         activeGameState.setRunning(true);
-
         activeGameState.setStartedAt(System.currentTimeMillis());
 
-
-
-// משדרים לכל החדר (מורה ותלמידים) שהמשחק התחיל
-        // מכינים את האובייקט שנישלח ללקוח
         Map<String, Object> startEventData = new java.util.HashMap<>();
         startEventData.put("type", "GAME_STARTED");
-
-
-// משדרים לכל החדר את האובייקט הנקי
-        sseService.broadcastToGame(gameId, "gameEvent", startEventData);
-
+        startEventData.put("startedAt", activeGameState.getStartedAt());
+        sseService.broadcastToGame(request.getGameId(), "gameEvent", startEventData);
 
         game.setStatus(STARTED);
         game.setStartedAt(new Date());
         persist.save(game);
+
+        return new BasicResponse(true, null);
+    }
+
+    @PostMapping("/end-game")
+    public BasicResponse endGame(@RequestBody com.ashcollege.requests.StartGameRequest request) {
+        UserEntity userEntity = persist.getUserByToken(request.getToken());
+        if (userEntity == null) return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
+
+        GameEntity game = persist.getGameById(request.getGameId());
+        if (game == null) return new BasicResponse(false, ERROR_MISSING_VALUES);
+
+        if (game.getCreator() == null || game.getCreator().getId() != userEntity.getId()) {
+            return new BasicResponse(false, ERROR_ONLY_CREATOR_CAN_START_GAME);
+        }
+
+        ActiveGameState activeGameState = activeGameRegistry.getGame(request.getGameId());
+        if (activeGameState == null || !activeGameState.isRunning()) {
+            return new BasicResponse(false, ERROR_GAME_NOT_ACTIVE);
+        }
+
+        gameController.endGameManually(request.getGameId(), activeGameState);
 
         return new BasicResponse(true, null);
     }

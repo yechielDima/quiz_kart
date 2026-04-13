@@ -1,31 +1,16 @@
 package com.ashcollege.responses;
 
 public class LoginResponse extends BasicResponse {
-    private int permission;
     private String token;
     private int id;
 
+    public LoginResponse() {
+    }
 
-    public LoginResponse(boolean success, Integer errorCode, int permission, String token, int id) {
+    public LoginResponse(boolean success, Integer errorCode, String token, int id) {
         super(success, errorCode);
-        this.permission = permission;
         this.token = token;
         this.id = id;
-
-    }
-
-
-
-    public int getPermission() {
-        return permission;
-    }
-
-    public void setPermission(int permission) {
-        this.permission = permission;
-    }
-
-    public LoginResponse() {
-
     }
 
     public int getId() {
@@ -43,6 +28,4 @@ public class LoginResponse extends BasicResponse {
     public void setToken(String token) {
         this.token = token;
     }
-
-
 }

@@ -12,11 +12,7 @@ public class Errors {
     public static final int ERROR_GAME_NOT_ACTIVE = 1008;
     public static final int ERROR_GAME_ALREADY_STARTED = 1009;
     public static final int ERROR_NOT_ENOUGH_PLAYERS = 1010;
-    public static final int ERROR_NO_PREMITION = 1011;
+    public static final int ERROR_NO_PERMISSION = 1011;
     public static final int ERROR_WRONG_ANSWER = 1012;
-
-
-
-
-
+    public static final int ERROR_GAME_FINISHED = 1013;
 }
