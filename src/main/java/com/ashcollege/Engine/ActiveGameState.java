@@ -1,24 +1,19 @@
 package com.ashcollege.Engine;
 
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ActiveGameState {
 
     private int gameId;
-    private boolean running;
-    private boolean finished;
-    private long startedAt;
+    private volatile boolean running;
+    private volatile boolean finished;
+    private volatile long startedAt;
     private long lastTickTime;
     private int trackLength;
     private int maxPlayers;
     private final Object lock = new Object();
     private Map<Integer, PlayerRuntimeState> players = new ConcurrentHashMap<>();
-
 
     public int getGameId() {
         return gameId;

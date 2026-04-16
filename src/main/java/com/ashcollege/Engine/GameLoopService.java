@@ -42,18 +42,30 @@ public class GameLoopService {
                         PlayerRuntimeState liveState = gameState.getPlayers().get(gp.getPlayer().getId());
 
                         if (liveState != null) {
-                            gp.setScore(liveState.getScore());
-                            gp.setCorrectAnswers(liveState.getCorrectAnswers());
-                            gp.setWrongAnswers(liveState.getWrongAnswers());
-                            gp.setStreak(liveState.getStreak());
-                            gp.setFinished(liveState.isFinished());
+                            int score;
+                            int correct;
+                            int wrong;
+                            int streak;
+                            boolean finished;
+                            List<QuestionLog> historyCopy;
+
+                            synchronized (gameState.getLock()) {
+                                score = liveState.getScore();
+                                correct = liveState.getCorrectAnswers();
+                                wrong = liveState.getWrongAnswers();
+                                streak = liveState.getStreak();
+                                finished = liveState.isFinished();
+                                historyCopy = new ArrayList<>(liveState.getAnswerHistory());
+                            }
+
+                            gp.setScore(score);
+                            gp.setCorrectAnswers(correct);
+                            gp.setWrongAnswers(wrong);
+                            gp.setStreak(streak);
+                            gp.setFinished(finished);
                             persist.save(gp);
 
-                            List<QuestionLog> history = liveState.getAnswerHistory();
-
-                            if (!history.isEmpty()) {
-                                List<QuestionLog> historyCopy = new ArrayList<>(history);
-
+                            if (!historyCopy.isEmpty()) {
                                 for (QuestionLog log : historyCopy) {
                                     PlayerAnswerEntity answerEntity = new PlayerAnswerEntity();
                                     answerEntity.setGamePlayer(gp);
@@ -67,7 +79,7 @@ public class GameLoopService {
                                     persist.save(answerEntity);
                                 }
 
-                                history.removeAll(historyCopy);
+                                liveState.getAnswerHistory().removeAll(historyCopy);
                             }
                         }
                     }

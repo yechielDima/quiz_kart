@@ -41,7 +41,7 @@ public class GameController {
         PlayerRuntimeState playerState = gameState.getPlayers().get(user.getId());
         if (playerState == null) return new BasicResponse(false, ERROR_NO_PERMISSION);
 
-        synchronized (playerState) {
+        synchronized (gameState.getLock()) {
             MathQuestionGenerator.QuestionData qData = playerState.getCurrentQuestion();
 
             if (qData == null) {
@@ -74,7 +74,9 @@ public class GameController {
         PlayerRuntimeState playerState = gameState.getPlayers().get(user.getId());
         if (playerState == null) return new BasicResponse(false, ERROR_NO_PERMISSION);
 
-        synchronized (playerState) {
+        synchronized (gameState.getLock()) {
+            if (gameState.isFinished()) return new BasicResponse(false, ERROR_GAME_FINISHED);
+
             MathQuestionGenerator.QuestionData askedQuestion = playerState.getCurrentQuestion();
             if (askedQuestion == null) return new BasicResponse(false, ERROR_MISSING_VALUES);
 
@@ -95,6 +97,7 @@ public class GameController {
 
                 Map<String, Object> eventData = new HashMap<>();
                 eventData.put("type", "PLAYER_MOVED");
+                eventData.put("playerId", user.getId());
                 eventData.put("player", updatedPlayer);
                 sseService.broadcastToGame(request.getGameId(), "gameEvent", eventData);
 
@@ -128,7 +131,9 @@ public class GameController {
     }
 
     public void endGameManually(int gameId, ActiveGameState gameState) {
-        finishGame(gameId, gameState, 0, null);
+        synchronized (gameState.getLock()) {
+            finishGame(gameId, gameState, 0, null);
+        }
     }
 
     private void finishGame(int gameId, ActiveGameState gameState, int winnerId, String winnerName) {
