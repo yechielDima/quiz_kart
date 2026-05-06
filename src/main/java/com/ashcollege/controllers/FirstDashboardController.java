@@ -1,11 +1,7 @@
 package com.ashcollege.controllers;
 
-import com.ashcollege.Engine.ActiveGameRegistry;
-import com.ashcollege.Engine.ActiveGameState;
-import com.ashcollege.Engine.PlayerRuntimeState;
-import com.ashcollege.entities.GameEntity;
-import com.ashcollege.entities.GamePlayerEntity;
-import com.ashcollege.entities.UserEntity;
+import com.ashcollege.Engine.*;
+import com.ashcollege.entities.*;
 import com.ashcollege.responses.*;
 import com.ashcollege.service.Persist;
 import com.ashcollege.utils.GeneralUtils;
@@ -198,8 +194,14 @@ public class FirstDashboardController {
                 Map<String, Object> joinEventData = new java.util.HashMap<>();
                 joinEventData.put("type", "PLAYERS_LIST_UPDATE");
                 joinEventData.put("players", livePlayers);
-
                 sseService.broadcastToGame(game.getId(), "gameEvent", joinEventData);
+
+                if (livePlayers.size() >= MAX_PLAYERS) {
+                    Map<String, Object> fullEventData = new java.util.HashMap<>();
+                    fullEventData.put("type", "GAME_FULL");
+                    fullEventData.put("playerCount", livePlayers.size());
+                    sseService.broadcastToGame(game.getId(), "gameEvent", fullEventData);
+                }
             }
 
             return new NewGameResponse(true, null, game.getId());
@@ -256,7 +258,7 @@ public class FirstDashboardController {
         if (game == null) return new BasicResponse(false, ERROR_MISSING_VALUES);
 
         if (game.getCreator() == null || game.getCreator().getId() != userEntity.getId()) {
-            return new BasicResponse(false, ERROR_ONLY_CREATOR_CAN_START_GAME);
+            return new BasicResponse(false, ERROR_ONLY_CREATOR_CAN_END_GAME);
         }
 
         ActiveGameState activeGameState = activeGameRegistry.getGame(request.getGameId());

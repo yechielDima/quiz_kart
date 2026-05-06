@@ -2,7 +2,6 @@ package com.ashcollege.controllers;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -44,7 +43,7 @@ public class SseService {
                     try {
                         emitter.send(SseEmitter.event().name(eventName).data(data));
                     } catch (IOException | IllegalStateException e) {
-                        LOGGER.warn("Failed to send to user {} in game {}.", userId, gameId);
+                        LOGGER.warn("Failed to send to user {} in game {}. Removing emitter.", userId, gameId);
                         removeEmitter(gameId, userId);
                     }
                 });
@@ -52,20 +51,18 @@ public class SseService {
         }
     }
 
-    public void sendToUser(int gameId, int userId, String eventName, Object data) {
-        Map<Integer, SseEmitter> roomEmitters = gameEmitters.get(gameId);
-        if (roomEmitters == null) return;
-
-        SseEmitter emitter = roomEmitters.get(userId);
-        if (emitter == null) return;
-
-        threadPool.execute(() -> {
-            try {
-                emitter.send(SseEmitter.event().name(eventName).data(data));
-            } catch (IOException | IllegalStateException e) {
-                removeEmitter(gameId, userId);
+    public void cleanupGame(int gameId) {
+        Map<Integer, SseEmitter> roomEmitters = gameEmitters.remove(gameId);
+        if (roomEmitters != null) {
+            for (SseEmitter emitter : roomEmitters.values()) {
+                try {
+                    emitter.complete();
+                } catch (Exception ignored) {
+                }
             }
-        });
+            roomEmitters.clear();
+            LOGGER.info("Cleaned up {} emitters for game {}", roomEmitters.size(), gameId);
+        }
     }
 
     private void removeEmitter(int gameId, int userId) {
@@ -73,29 +70,22 @@ public class SseService {
         if (roomEmitters != null) {
             roomEmitters.remove(userId);
             if (roomEmitters.isEmpty()) {
-                gameEmitters.remove(gameId, roomEmitters);
+                gameEmitters.remove(gameId);
             }
         }
     }
 
-    @Scheduled(fixedRate = 15000)
-    public void sendHeartbeat() {
-        gameEmitters.forEach((gameId, roomEmitters) -> {
-            roomEmitters.forEach((userId, emitter) -> {
-                threadPool.execute(() -> {
-                    try {
-                        emitter.send(SseEmitter.event().name("ping").data("keep-alive"));
-                    } catch (IOException | IllegalStateException e) {
-                        removeEmitter(gameId, userId);
-                    }
-                });
-            });
-        });
-    }
-
     @PreDestroy
     public void shutdown() {
-        LOGGER.info("Shutting down SSE thread pool...");
         threadPool.shutdown();
+        for (Map<Integer, SseEmitter> roomEmitters : gameEmitters.values()) {
+            for (SseEmitter emitter : roomEmitters.values()) {
+                try {
+                    emitter.complete();
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        gameEmitters.clear();
     }
 }

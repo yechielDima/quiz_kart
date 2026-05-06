@@ -4,6 +4,7 @@ public class GameActionRequest {
     private String token;
     private int gameId;
     private Integer answer;
+    private Integer choice;
 
     public GameActionRequest() {
     }
@@ -30,5 +31,13 @@ public class GameActionRequest {
 
     public void setAnswer(Integer answer) {
         this.answer = answer;
+    }
+
+    public Integer getChoice() {
+        return choice;
+    }
+
+    public void setChoice(Integer choice) {
+        this.choice = choice;
     }
 }

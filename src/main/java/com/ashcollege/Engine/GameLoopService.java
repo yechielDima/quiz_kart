@@ -56,6 +56,7 @@ public class GameLoopService {
                                 streak = liveState.getStreak();
                                 finished = liveState.isFinished();
                                 historyCopy = new ArrayList<>(liveState.getAnswerHistory());
+                                liveState.getAnswerHistory().clear();
                             }
 
                             gp.setScore(score);
@@ -78,8 +79,6 @@ public class GameLoopService {
                                     answerEntity.setPointsEarned(log.getPointsEarned());
                                     persist.save(answerEntity);
                                 }
-
-                                liveState.getAnswerHistory().removeAll(historyCopy);
                             }
                         }
                     }

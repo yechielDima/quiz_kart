@@ -6,12 +6,9 @@ public class QuestionLog {
     private int playerAnswer;
     private int correctAnswer;
     private boolean isCorrect;
-
-    // השדות החדשים
     private long timeTakenMs;
     private int pointsEarned;
 
-    // בנאי מעודכן
     public QuestionLog(String questionText, int questionType, int playerAnswer,
                        int correctAnswer, boolean isCorrect, long timeTakenMs, int pointsEarned) {
         this.questionText = questionText;

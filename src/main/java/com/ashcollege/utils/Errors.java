@@ -15,4 +15,5 @@ public class Errors {
     public static final int ERROR_NO_PERMISSION = 1011;
     public static final int ERROR_WRONG_ANSWER = 1012;
     public static final int ERROR_GAME_FINISHED = 1013;
+    public static final int ERROR_ONLY_CREATOR_CAN_END_GAME = 1014;
 }

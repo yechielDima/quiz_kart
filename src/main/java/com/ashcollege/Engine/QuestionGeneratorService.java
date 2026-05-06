@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+import static com.ashcollege.utils.Constants.*;
+
 @Service
 public class QuestionGeneratorService {
 
@@ -21,9 +23,33 @@ public class QuestionGeneratorService {
 
     private final Random random = new Random();
 
-    private List<QuestionTemplateEntity> cachedTemplates = new ArrayList<>();
-    private List<String> cachedNames = new ArrayList<>();
-    private List<String> cachedObjects = new ArrayList<>();
+    private volatile List<QuestionTemplateEntity> cachedTemplates = new ArrayList<>();
+    private volatile List<String> cachedNames = new ArrayList<>();
+    private volatile List<String> cachedObjects = new ArrayList<>();
+
+    private static final int[][] ADD_SUB_MAX = {
+            {10, 15, 20},
+            {20, 40, 60},
+            {50, 80, 100}
+    };
+
+    private static final int[][] MUL_DIV_MAX = {
+            {5, 7, 8},
+            {10, 12, 15},
+            {13, 16, 20}
+    };
+
+    private static final int[][] PERCENT_OPTIONS = {
+            {50, 10},
+            {10, 20, 25, 50},
+            {5, 10, 15, 20, 25, 50, 75}
+    };
+
+    private static final int[][] PERCENT_RESULT_RANGE = {
+            {1, 5},
+            {1, 10},
+            {5, 20}
+    };
 
     @PostConstruct
     public void loadFromDatabase() {
@@ -31,91 +57,107 @@ public class QuestionGeneratorService {
     }
 
     public void refreshCache() {
-        cachedTemplates = persist.getAllTemplates();
-
+        List<QuestionTemplateEntity> newTemplates = persist.getAllTemplates();
         List<QuestionWordEntity> allWords = persist.getAllWords();
-        cachedNames = allWords.stream()
+
+        List<String> newNames = allWords.stream()
                 .filter(w -> "name".equals(w.getCategory()))
                 .map(QuestionWordEntity::getWord)
                 .collect(Collectors.toList());
-        cachedObjects = allWords.stream()
+
+        List<String> newObjects = allWords.stream()
                 .filter(w -> "object".equals(w.getCategory()))
                 .map(QuestionWordEntity::getWord)
                 .collect(Collectors.toList());
+
+        cachedTemplates = newTemplates;
+        cachedNames = newNames;
+        cachedObjects = newObjects;
     }
 
-    public MathQuestionGenerator.QuestionData generateQuestion(int difficultyLevel) {
+    public MathQuestionGenerator.QuestionData generateQuestion(int gameType, int questionDifficulty) {
         MathQuestionGenerator.QuestionData qData = new MathQuestionGenerator.QuestionData();
 
-        int operationType = chooseOperationByDifficulty(difficultyLevel);
+        int operationType = chooseOperationByGameType(gameType);
 
         int num1 = 0, num2 = 0, correctAnswer = 0;
         String sign = "";
 
+        int qd = Math.max(0, Math.min(2, questionDifficulty));
+        int gt = Math.max(0, Math.min(2, gameType));
+
         switch (operationType) {
             case 0:
-                num1 = randomInRange(1, (difficultyLevel + 1) * 20);
-                num2 = randomInRange(1, (difficultyLevel + 1) * 20);
+                int addMax = ADD_SUB_MAX[qd][gt];
+                num1 = randomInRange(1, addMax);
+                num2 = randomInRange(1, addMax);
                 correctAnswer = num1 + num2;
                 sign = "+";
                 break;
             case 1:
-                num1 = randomInRange(5, (difficultyLevel + 1) * 20 + 5);
+                int subMax = ADD_SUB_MAX[qd][gt];
+                num1 = randomInRange(3, subMax + 3);
                 num2 = randomInRange(1, num1 - 1);
                 correctAnswer = num1 - num2;
                 sign = "-";
                 break;
             case 2:
-                int mulMax = (difficultyLevel == 0) ? 10 : (difficultyLevel == 1) ? 12 : 15;
+                int mulMax = MUL_DIV_MAX[qd][gt];
                 num1 = randomInRange(2, mulMax);
                 num2 = randomInRange(2, mulMax);
                 correctAnswer = num1 * num2;
                 sign = "×";
                 break;
             case 3:
-                int divMax = (difficultyLevel == 0) ? 10 : (difficultyLevel == 1) ? 12 : 15;
+                int divMax = MUL_DIV_MAX[qd][gt];
                 num2 = randomInRange(2, divMax);
                 correctAnswer = randomInRange(2, divMax);
                 num1 = num2 * correctAnswer;
                 sign = "÷";
                 break;
             case 4:
-                int[] nicePercentages = {10, 20, 25, 50};
-                num1 = nicePercentages[random.nextInt(nicePercentages.length)];
-                correctAnswer = randomInRange(1, 10);
+                int[] percentages = PERCENT_OPTIONS[qd];
+                int pMin = PERCENT_RESULT_RANGE[qd][0];
+                int pMax = PERCENT_RESULT_RANGE[qd][1];
+                num1 = percentages[random.nextInt(percentages.length)];
+                correctAnswer = randomInRange(pMin, pMax);
                 num2 = correctAnswer * 100 / num1;
                 sign = "% מתוך";
                 break;
         }
 
-        qData.questionText = buildQuestionText(operationType, difficultyLevel, num1, num2, sign);
+        qData.questionText = buildQuestionText(operationType, gt, num1, num2, sign);
         qData.correctAnswer = correctAnswer;
         qData.options = generateOptions(correctAnswer, operationType, num1, num2);
 
         return qData;
     }
 
-    private String buildQuestionText(int operationType, int difficultyLevel, int num1, int num2, String sign) {
-        boolean hasTemplates = !cachedTemplates.isEmpty();
-        boolean hasNames = !cachedNames.isEmpty();
-        boolean hasObjects = !cachedObjects.isEmpty();
+    private String buildQuestionText(int operationType, int gameType, int num1, int num2, String sign) {
+        List<QuestionTemplateEntity> templates = cachedTemplates;
+        List<String> names = cachedNames;
+        List<String> objects = cachedObjects;
+
+        boolean hasTemplates = !templates.isEmpty();
+        boolean hasNames = !names.isEmpty();
+        boolean hasObjects = !objects.isEmpty();
 
         if (hasTemplates && hasNames && hasObjects && random.nextBoolean()) {
-            List<QuestionTemplateEntity> matching = cachedTemplates.stream()
-                    .filter(t -> t.getOperationType() == operationType && t.getDifficultyLevel() <= difficultyLevel)
+            List<QuestionTemplateEntity> matching = templates.stream()
+                    .filter(t -> t.getOperationType() == operationType && t.getDifficultyLevel() <= gameType)
                     .collect(Collectors.toList());
 
             if (!matching.isEmpty()) {
                 QuestionTemplateEntity template = matching.get(random.nextInt(matching.size()));
                 String text = template.getTemplateText();
 
-                String name1 = cachedNames.get(random.nextInt(cachedNames.size()));
-                String name2 = cachedNames.get(random.nextInt(cachedNames.size()));
-                while (name2.equals(name1) && cachedNames.size() > 1) {
-                    name2 = cachedNames.get(random.nextInt(cachedNames.size()));
+                String name1 = names.get(random.nextInt(names.size()));
+                String name2 = names.get(random.nextInt(names.size()));
+                while (name2.equals(name1) && names.size() > 1) {
+                    name2 = names.get(random.nextInt(names.size()));
                 }
 
-                String obj = cachedObjects.get(random.nextInt(cachedObjects.size()));
+                String obj = objects.get(random.nextInt(objects.size()));
 
                 text = text.replace("{num1}", String.valueOf(num1))
                         .replace("{num2}", String.valueOf(num2))
@@ -178,9 +220,9 @@ public class QuestionGeneratorService {
         }
     }
 
-    private int chooseOperationByDifficulty(int level) {
-        if (level == 0) return random.nextInt(2);
-        if (level == 1) return random.nextInt(4);
+    private int chooseOperationByGameType(int gameType) {
+        if (gameType == 0) return random.nextInt(2);
+        if (gameType == 1) return random.nextInt(4);
         return random.nextInt(5);
     }
 

@@ -1,7 +1,6 @@
 package com.ashcollege.entities;
+
 import java.util.Date;
-import java.util.List;
-import java.util.Random;
 
 public class GameEntity extends BaseEntity {
     private String gameName;
@@ -14,11 +13,6 @@ public class GameEntity extends BaseEntity {
     private int maxPlayers;
     private int trackLength;
 
-
-
-
-
-
     public UserEntity getCreator() {
         return creator;
     }
@@ -27,11 +21,10 @@ public class GameEntity extends BaseEntity {
         this.creator = creator;
     }
 
-
-    public String getGameCode()
-    {
+    public String getGameCode() {
         return gameCode;
     }
+
     public void setGameCode(String gameCode) {
         this.gameCode = gameCode;
     }
