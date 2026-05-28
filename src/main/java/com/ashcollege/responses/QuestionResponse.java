@@ -8,18 +8,16 @@ public class QuestionResponse extends BasicResponse {
     private int timeLimitSeconds;
     private String questionMode;
     private int dirtRoadRemaining;
-    private boolean canSwap;
 
     public QuestionResponse(boolean success, Integer errorCode, String questionText,
                             List<Integer> options, int timeLimitSeconds,
-                            String questionMode, int dirtRoadRemaining, boolean canSwap) {
+                            String questionMode, int dirtRoadRemaining) {
         super(success, errorCode);
         this.questionText = questionText;
         this.options = options;
         this.timeLimitSeconds = timeLimitSeconds;
         this.questionMode = questionMode;
         this.dirtRoadRemaining = dirtRoadRemaining;
-        this.canSwap = canSwap;
     }
 
     public String getQuestionText() {
@@ -60,13 +58,5 @@ public class QuestionResponse extends BasicResponse {
 
     public void setDirtRoadRemaining(int dirtRoadRemaining) {
         this.dirtRoadRemaining = dirtRoadRemaining;
-    }
-
-    public boolean isCanSwap() {
-        return canSwap;
-    }
-
-    public void setCanSwap(boolean canSwap) {
-        this.canSwap = canSwap;
     }
 }

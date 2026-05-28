@@ -1,7 +1,6 @@
 package com.ashcollege.entities;
 
-public class PlayerAnswerEntity {
-    private int id;
+public class PlayerAnswerEntity extends BaseEntity {
     private GamePlayerEntity gamePlayer;
     private String questionText;
     private int questionType;
@@ -10,14 +9,6 @@ public class PlayerAnswerEntity {
     private boolean correct;
     private long timeTakenMs;
     private int pointsEarned;
-
-    public int getId() {
-        return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    }
 
     public GamePlayerEntity getGamePlayer() {
         return gamePlayer;

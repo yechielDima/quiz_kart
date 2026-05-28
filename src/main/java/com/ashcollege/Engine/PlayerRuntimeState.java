@@ -36,7 +36,10 @@ public class PlayerRuntimeState {
     private String activeEffect;
     private int luckEventsReceived;
 
-    private int swapsUsed;
+    private long totalAnswerTimeMs;
+    private int totalAnswersCount;
+
+    private int consecutiveWrong;
 
     public PlayerRuntimeState() {
         this.decisionThreshold = randomThreshold();
@@ -62,12 +65,14 @@ public class PlayerRuntimeState {
     public void chooseAutostrada() {
         junctionPending = false;
         junctionType = JUNCTION_AUTOSTRADA;
+        consecutiveWrong = 0;
     }
 
     public void chooseDirtRoad() {
         junctionPending = false;
         junctionType = JUNCTION_DIRT_ROAD;
         dirtRoadQuestionsLeft = DIRT_ROAD_QUESTIONS;
+        consecutiveWrong = 0;
     }
 
     public void resetJunction() {
@@ -140,13 +145,32 @@ public class PlayerRuntimeState {
         return basePoints;
     }
 
+    public void recordAnswerTime(long timeMs) {
+        totalAnswerTimeMs += timeMs;
+        totalAnswersCount++;
+    }
+
     public double getAverageAnswerTimeMs() {
-        if (answerHistory.isEmpty()) return 0;
-        long total = 0;
-        for (QuestionLog log : answerHistory) {
-            total += log.getTimeTakenMs();
-        }
-        return (double) total / answerHistory.size();
+        if (totalAnswersCount == 0) return 0;
+        return (double) totalAnswerTimeMs / totalAnswersCount;
+    }
+
+    public int getOptionCount() {
+        if (consecutiveWrong >= 4) return 2;
+        if (consecutiveWrong >= 3) return 3;
+        return 4;
+    }
+
+    public void incrementConsecutiveWrong() {
+        consecutiveWrong++;
+    }
+
+    public void resetConsecutiveWrong() {
+        consecutiveWrong = 0;
+    }
+
+    public int getConsecutiveWrong() {
+        return consecutiveWrong;
     }
 
     public long getCurrentQuestionStartTime() {
@@ -290,13 +314,5 @@ public class PlayerRuntimeState {
 
     public int getLuckEventsReceived() {
         return luckEventsReceived;
-    }
-
-    public int getSwapsUsed() {
-        return swapsUsed;
-    }
-
-    public void incrementSwapsUsed() {
-        swapsUsed++;
     }
 }

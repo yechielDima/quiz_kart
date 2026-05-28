@@ -147,14 +147,26 @@ public class FirstDashboardController {
             UserEntity user = persist.getUserByToken(request.getToken());
             if (user == null) return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
 
-            GameEntity game = persist.getGameByGameCode(request.getGameCode().trim(), STARTED);
-            if (game == null) {
-                game = persist.getGameByGameCode(request.getGameCode().trim(), WAITING);
-            }
-            if (game == null) return new BasicResponse(false, ERROR_GAME_NOT_FOUND);
+            String code = request.getGameCode().trim();
 
-            if (game.getStatus() == FINISHED) {
-                return new BasicResponse(false, ERROR_GAME_FINISHED);
+            GameEntity game = persist.getGameByGameCode(code, WAITING);
+
+            if (game == null) {
+                GameEntity startedGame = persist.getGameByGameCode(code, STARTED);
+                if (startedGame != null) {
+                    GamePlayerEntity existingInStarted = persist.getGamePlayerByGameAndUser(startedGame.getId(), user.getId());
+                    if (existingInStarted != null) {
+                        return new NewGameResponse(true, null, startedGame.getId());
+                    }
+                    return new BasicResponse(false, ERROR_GAME_ALREADY_STARTED);
+                }
+
+                GameEntity finishedGame = persist.getGameByGameCode(code, FINISHED);
+                if (finishedGame != null) {
+                    return new BasicResponse(false, ERROR_GAME_FINISHED);
+                }
+
+                return new BasicResponse(false, ERROR_GAME_NOT_FOUND);
             }
 
             GamePlayerEntity existingPlayer = persist.getGamePlayerByGameAndUser(game.getId(), user.getId());

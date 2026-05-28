@@ -46,22 +46,6 @@ public class GameController {
         }
     }
 
-    private boolean isPlayerBehind(ActiveGameState gameState, int playerId) {
-        Map<Integer, PlayerRuntimeState> players = gameState.getPlayers();
-        if (players.size() <= 1) return false;
-
-        PlayerRuntimeState me = players.get(playerId);
-        if (me == null) return false;
-
-        double totalScore = 0;
-        for (PlayerRuntimeState p : players.values()) {
-            totalScore += p.getScore();
-        }
-        double average = totalScore / players.size();
-
-        return me.getScore() < average;
-    }
-
     private int getGameType(int gameId) {
         GameEntity gameEntity = persist.getGameById(gameId);
         if (gameEntity != null) {
@@ -113,6 +97,26 @@ public class GameController {
         }
     }
 
+    private List<Integer> trimOptions(List<Integer> options, int correctAnswer, int targetCount) {
+        if (targetCount >= options.size()) return options;
+
+        List<Integer> wrong = new ArrayList<>();
+        for (Integer opt : options) {
+            if (opt != correctAnswer) {
+                wrong.add(opt);
+            }
+        }
+        Collections.shuffle(wrong);
+
+        List<Integer> trimmed = new ArrayList<>();
+        trimmed.add(correctAnswer);
+        for (int i = 0; i < targetCount - 1 && i < wrong.size(); i++) {
+            trimmed.add(wrong.get(i));
+        }
+        Collections.shuffle(trimmed);
+        return trimmed;
+    }
+
     @PostMapping("/get-question")
     public BasicResponse getQuestion(@RequestBody com.ashcollege.requests.GameActionRequest request) {
         UserEntity user = persist.getUserByToken(request.getToken());
@@ -128,7 +132,7 @@ public class GameController {
 
         synchronized (gameState.getLock()) {
             if (playerState.isJunctionPending()) {
-                return new QuestionResponse(true, null, null, null, 0, "junction", 0, false);
+                return new QuestionResponse(true, null, null, null, 0, "junction", 0);
             }
 
             int questionDifficulty;
@@ -161,6 +165,10 @@ public class GameController {
                     playerState.setStreak(0);
                     playerState.setCurrentQuestion(null);
 
+                    if ("normal".equals(questionMode)) {
+                        playerState.incrementConsecutiveWrong();
+                    }
+
                     if (playerState.getJunctionType() == JUNCTION_DIRT_ROAD) {
                         playerState.setDirtRoadQuestionsLeft(playerState.getDirtRoadQuestionsLeft() - 1);
                         if (playerState.getDirtRoadQuestionsLeft() <= 0) {
@@ -179,9 +187,13 @@ public class GameController {
                     qData = null;
                 } else {
                     timeLimit = remainingSec;
-                    boolean canSwap = "normal".equals(questionMode) && isPlayerBehind(gameState, user.getId());
-                    return new QuestionResponse(true, null, qData.questionText, qData.options,
-                            timeLimit, questionMode, dirtRoadRemaining, canSwap);
+                    List<Integer> finalOptions = qData.options;
+                    if ("normal".equals(questionMode)) {
+                        int optionCount = playerState.getOptionCount();
+                        finalOptions = trimOptions(qData.options, qData.correctAnswer, optionCount);
+                    }
+                    return new QuestionResponse(true, null, qData.questionText, finalOptions,
+                            timeLimit, questionMode, dirtRoadRemaining);
                 }
             }
 
@@ -199,50 +211,14 @@ public class GameController {
                 dirtRoadRemaining = playerState.getDirtRoadQuestionsLeft();
             }
 
-            boolean canSwap = "normal".equals(questionMode) && isPlayerBehind(gameState, user.getId());
-
-            return new QuestionResponse(true, null, qData.questionText, qData.options,
-                    timeLimit, questionMode, dirtRoadRemaining, canSwap);
-        }
-    }
-
-    @PostMapping("/swap-question")
-    public BasicResponse swapQuestion(@RequestBody com.ashcollege.requests.GameActionRequest request) {
-        UserEntity user = persist.getUserByToken(request.getToken());
-        if (user == null) return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
-
-        ActiveGameState gameState = activeGameRegistry.getGame(request.getGameId());
-        if (gameState == null) return new BasicResponse(false, ERROR_GAME_NOT_FOUND);
-        if (!gameState.isRunning()) return new BasicResponse(false, ERROR_GAME_NOT_ACTIVE);
-        if (gameState.isFinished()) return new BasicResponse(false, ERROR_GAME_FINISHED);
-
-        PlayerRuntimeState playerState = gameState.getPlayers().get(user.getId());
-        if (playerState == null) return new BasicResponse(false, ERROR_NO_PERMISSION);
-
-        synchronized (gameState.getLock()) {
-            if (playerState.getJunctionType() != JUNCTION_NONE) {
-                return new BasicResponse(false, ERROR_MISSING_VALUES);
+            List<Integer> finalOptions = qData.options;
+            if ("normal".equals(questionMode)) {
+                int optionCount = playerState.getOptionCount();
+                finalOptions = trimOptions(qData.options, qData.correctAnswer, optionCount);
             }
 
-            if (!isPlayerBehind(gameState, user.getId())) {
-                return new BasicResponse(false, ERROR_NO_PERMISSION);
-            }
-
-            int gameType = getGameType(request.getGameId());
-
-            MathQuestionGenerator.QuestionData newQuestion =
-                    questionGenerator.generateQuestion(gameType, QUESTION_NORMAL);
-
-            playerState.setCurrentQuestion(newQuestion);
-            playerState.setCurrentQuestionStartTime(System.currentTimeMillis());
-            playerState.setCurrentCorrectAnswer(newQuestion.correctAnswer);
-            playerState.setCurrentQuestionDifficulty(QUESTION_NORMAL);
-            playerState.incrementSwapsUsed();
-
-            int timeLimit = getTimeLimitForDifficulty(QUESTION_NORMAL);
-
-            return new QuestionResponse(true, null, newQuestion.questionText, newQuestion.options,
-                    timeLimit, "normal", 0, false);
+            return new QuestionResponse(true, null, qData.questionText, finalOptions,
+                    timeLimit, questionMode, dirtRoadRemaining);
         }
     }
 
@@ -351,9 +327,9 @@ public class GameController {
 
             } else {
                 if (isCorrect) {
-                    int streakBonus = Math.min(playerState.getStreak() * 10, 50);
-                    int timeBonus = timeTakenMs < 5000 ? 20 : (timeTakenMs < 10000 ? 10 : 0);
-                    int basePoints = 100 + streakBonus + timeBonus;
+                    int streakBonus = Math.min(playerState.getStreak() * NORMAL_STREAK_BONUS, NORMAL_MAX_STREAK_BONUS);
+                    int timeBonus = timeTakenMs < 5000 ? NORMAL_FAST_TIME_BONUS : (timeTakenMs < 10000 ? NORMAL_MEDIUM_TIME_BONUS : 0);
+                    int basePoints = NORMAL_BASE_POINTS + streakBonus + timeBonus;
 
                     pointsEarned = playerState.applyActiveEffect(basePoints);
 
@@ -362,8 +338,7 @@ public class GameController {
                     playerState.setStreak(playerState.getStreak() + 1);
                     playerState.incrementDecisionMeter();
                     playerState.incrementLuckMeter();
-
-                    playerState.setCurrentQuestion(null);
+                    playerState.resetConsecutiveWrong();
 
                     if (playerState.shouldTriggerJunction()) {
                         playerState.triggerJunction();
@@ -383,34 +358,39 @@ public class GameController {
                 } else {
                     playerState.setWrongAnswers(playerState.getWrongAnswers() + 1);
                     playerState.setStreak(0);
+                    playerState.incrementConsecutiveWrong();
+                }
 
-                    if (timeExpired) {
-                        playerState.setCurrentQuestion(null);
-                    }
+                playerState.setCurrentQuestion(null);
+            }
+
+            int newScore = playerState.getScore();
+
+            if (oldScore != newScore) {
+                GamePlayerModel updatedPlayer = new GamePlayerModel(user.getId(), user.getFullName(), playerState);
+
+                Map<String, Object> eventData = new HashMap<>();
+                eventData.put("type", "PLAYER_MOVED");
+                eventData.put("playerId", user.getId());
+                eventData.put("player", updatedPlayer);
+                sseService.broadcastToGame(request.getGameId(), "gameEvent", eventData);
+
+                if (isCorrect) {
+                    checkOvertakes(request.getGameId(), gameState, user.getId(), user.getFullName(), oldScore, newScore);
+                    checkStreakMilestone(request.getGameId(), user.getId(), user.getFullName(), playerState.getStreak());
+                }
+
+                if (newScore >= gameState.getTrackLength()) {
+                    playerState.setFinished(true);
+                    finishGame(request.getGameId(), gameState, user.getId(), user.getFullName());
                 }
             }
 
-            GamePlayerModel updatedPlayer = new GamePlayerModel(user.getId(), user.getFullName(), playerState);
-
-            Map<String, Object> eventData = new HashMap<>();
-            eventData.put("type", "PLAYER_MOVED");
-            eventData.put("playerId", user.getId());
-            eventData.put("player", updatedPlayer);
-            sseService.broadcastToGame(request.getGameId(), "gameEvent", eventData);
-
-            if (isCorrect) {
-                checkOvertakes(request.getGameId(), gameState, user.getId(), user.getFullName(), oldScore, playerState.getScore());
-                checkStreakMilestone(request.getGameId(), user.getId(), user.getFullName(), playerState.getStreak());
-            }
-
-            if (playerState.getScore() >= gameState.getTrackLength()) {
-                playerState.setFinished(true);
-                finishGame(request.getGameId(), gameState, user.getId(), user.getFullName());
-            }
+            playerState.recordAnswerTime(timeTakenMs);
 
             QuestionLog log = new QuestionLog(
                     askedQuestion.questionText,
-                    1,
+                    askedQuestion.operationType,
                     request.getAnswer() != null ? request.getAnswer() : -1,
                     askedQuestion.correctAnswer,
                     isCorrect,
@@ -461,7 +441,6 @@ public class GameController {
                     playerData.put("successRate", totalAnswers > 0 ? Math.round((double) prs.getCorrectAnswers() / totalAnswers * 100) : 0);
                     playerData.put("avgTimeSec", Math.round(prs.getAverageAnswerTimeMs() / 100.0) / 10.0);
                     playerData.put("luckEvents", prs.getLuckEventsReceived());
-                    playerData.put("swapsUsed", prs.getSwapsUsed());
                     return playerData;
                 })
                 .collect(Collectors.toList());

@@ -8,5 +8,6 @@ public class MathQuestionGenerator {
         public String questionText;
         public int correctAnswer;
         public List<Integer> options;
+        public int operationType;
     }
 }

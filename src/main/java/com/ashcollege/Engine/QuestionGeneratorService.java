@@ -79,6 +79,7 @@ public class QuestionGeneratorService {
         MathQuestionGenerator.QuestionData qData = new MathQuestionGenerator.QuestionData();
 
         int operationType = chooseOperationByGameType(gameType);
+        qData.operationType = operationType;
 
         int num1 = 0, num2 = 0, correctAnswer = 0;
         String sign = "";
