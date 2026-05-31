@@ -116,7 +116,65 @@ public class GameController {
         Collections.shuffle(trimmed);
         return trimmed;
     }
+    @PostMapping("/leave-game")
+    public BasicResponse leaveGame(@RequestBody com.ashcollege.requests.GameActionRequest request) {
+        UserEntity user = persist.getUserByToken(request.getToken());
+        if (user == null) return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
 
+        GameEntity game = persist.getGameById(request.getGameId());
+        if (game == null) return new BasicResponse(false, ERROR_GAME_NOT_FOUND);
+
+        ActiveGameState activeGame = activeGameRegistry.getGame(game.getId());
+
+        if (game.getStatus() != WAITING) {
+            return new BasicResponse(true, null);
+        }
+
+        if (game.getCreator().getId() == user.getId()) {
+            game.setStatus(FINISHED);
+            game.setDeleted(true);
+            persist.save(game);
+            persist.flush();
+
+            if (activeGame != null) {
+                activeGameRegistry.removeGame(game.getId());
+            }
+
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("type", "GAME_CANCELLED");
+            sseService.broadcastToGame(game.getId(), "gameEvent", eventData);
+
+            sseService.cleanupGame(game.getId());
+
+            return new BasicResponse(true, null);
+        }
+
+        GamePlayerEntity gp = persist.getGamePlayerByGameAndUser(game.getId(), user.getId());
+        if (gp != null) {
+            gp.setDeleted(true);
+            persist.save(gp);
+            persist.flush();
+
+            if (activeGame != null) {
+                activeGame.getPlayers().remove(user.getId());
+
+                List<GamePlayerModel> livePlayers = new ArrayList<>();
+                List<GamePlayerEntity> dbPlayers = persist.getGamePlayersByGameId(game.getId());
+                if (dbPlayers != null) {
+                    for (GamePlayerEntity p : dbPlayers) {
+                        livePlayers.add(new GamePlayerModel(p));
+                    }
+                }
+
+                Map<String, Object> updateEvent = new HashMap<>();
+                updateEvent.put("type", "PLAYERS_LIST_UPDATE");
+                updateEvent.put("players", livePlayers);
+                sseService.broadcastToGame(game.getId(), "gameEvent", updateEvent);
+            }
+        }
+
+        return new BasicResponse(true, null);
+    }
     @PostMapping("/get-question")
     public BasicResponse getQuestion(@RequestBody com.ashcollege.requests.GameActionRequest request) {
         UserEntity user = persist.getUserByToken(request.getToken());

@@ -117,11 +117,9 @@ public class FirstDashboardController {
         ActiveGameState activeGameState = getOrReviveGame(game);
 
         List<GamePlayerModel> securePlayers = new java.util.ArrayList<>();
-        List<GamePlayerEntity> dbPlayers = persist.getGamePlayersByGameId(id);
-        if (dbPlayers != null) {
-            for (GamePlayerEntity gp : dbPlayers) {
-                securePlayers.add(new GamePlayerModel(gp));
-            }
+
+        for (PlayerRuntimeState prs : activeGameState.getPlayers().values()) {
+            securePlayers.add(new GamePlayerModel(prs.getUserId(), prs.getFullName(), prs));
         }
 
         GameModel secureGameModel = new GameModel(game, securePlayers);
