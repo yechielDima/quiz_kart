@@ -14,12 +14,6 @@ import java.util.Properties;
 
 import static com.ashcollege.utils.Constants.SCHEMA;
 
-/**
- * Test config that turn on H2 in-memory database.
- * This mode is more convenient for fast starting.
- * Change property spring.profiles.active to "test" for run application in this mode.
- */
-
 @Configuration
 @Profile("test")
 public class TestConfig {
@@ -27,7 +21,7 @@ public class TestConfig {
     public DataSource dataSource() {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.h2.Driver");
-        dataSource.setUrl("jdbc:h2:mem:"+SCHEMA+";MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE");
+        dataSource.setUrl("jdbc:h2:mem:" + SCHEMA + ";MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE");
         return dataSource;
     }
 
@@ -40,9 +34,6 @@ public class TestConfig {
         hibernateProperties.put("hibernate.hbm2ddl.auto", "update");
         hibernateProperties.put("hibernate.jdbc.batch_size", 50);
         hibernateProperties.put("hibernate.connection.characterEncoding", "utf8");
-//        hibernateProperties.put("hibernate.cache.use_second_level_cache", "true");
-//        hibernateProperties.put("hibernate.cache.use_query_cache", "true");
-//        hibernateProperties.put("hibernate.cache.region.factory_class", "org.hibernate.cache.ehcache.EhCacheRegionFactory");
         sessionFactoryBean.setHibernateProperties(hibernateProperties);
         sessionFactoryBean.setMappingResources("objects.hbm.xml");
         return sessionFactoryBean;
@@ -54,6 +45,4 @@ public class TestConfig {
         transactionManager.setSessionFactory(sessionFactory().getObject());
         return transactionManager;
     }
-
-
 }

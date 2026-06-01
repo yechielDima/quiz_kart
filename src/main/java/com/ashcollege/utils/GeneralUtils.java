@@ -10,11 +10,8 @@ public class GeneralUtils {
     private static final int OTP_MIN_VALUE = 100000;
     private static final int OTP_MAX_VALUE = 999999;
 
-
-
-    // להחליף את hashMd5 בפונקציה הזו:
     public static String hashPassword(String username, String password) {
-        String source = username + "SecretSalt123!" + password; // הוספנו מלח (Salt) לאבטחה נוספת
+        String source = username + "SecretSalt123!" + password;
         try {
             return DatatypeConverter.printHexBinary(MessageDigest.getInstance("SHA-256").digest(source.getBytes("UTF-8")));
         } catch (NoSuchAlgorithmException | UnsupportedEncodingException e) {
@@ -24,8 +21,9 @@ public class GeneralUtils {
 
     public static String generateOtp() {
         Random random = new Random();
-        return String.valueOf(random.nextInt(OTP_MIN_VALUE, OTP_MAX_VALUE ));
+        return String.valueOf(random.nextInt(OTP_MIN_VALUE, OTP_MAX_VALUE));
     }
+
     public static String generateRandomCode(int length) {
         String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         StringBuilder sb = new StringBuilder();
@@ -37,8 +35,4 @@ public class GeneralUtils {
 
         return sb.toString();
     }
-
-
-
-
 }

@@ -54,6 +54,7 @@ public class FirstDashboardController {
                     prs.setCorrectAnswers(gp.getCorrectAnswers());
                     prs.setWrongAnswers(gp.getWrongAnswers());
                     prs.setStreak(gp.getStreak());
+                    prs.setFinished(gp.isFinished());
                     activeGame.getPlayers().put(gp.getPlayer().getId(), prs);
                 }
             }
@@ -167,40 +168,48 @@ public class FirstDashboardController {
                 return new BasicResponse(false, ERROR_GAME_NOT_FOUND);
             }
 
-            GamePlayerEntity existingPlayer = persist.getGamePlayerByGameAndUser(game.getId(), user.getId());
+            ActiveGameState activeGame = getOrReviveGame(game);
 
-            if (existingPlayer == null) {
-                List<GamePlayerEntity> currentPlayers = persist.getGamePlayersByGameId(game.getId());
-                if (currentPlayers != null && currentPlayers.size() >= MAX_PLAYERS) {
-                    return new BasicResponse(false, ERROR_GAME_IS_FULL);
+            boolean playerAdded = false;
+            List<GamePlayerModel> livePlayers;
+
+            synchronized (activeGame.getLock()) {
+                GamePlayerEntity existingPlayer = persist.getGamePlayerByGameAndUser(game.getId(), user.getId());
+
+                if (existingPlayer == null && !activeGame.getPlayers().containsKey(user.getId())) {
+                    List<GamePlayerEntity> currentPlayers = persist.getGamePlayersByGameId(game.getId());
+                    if (currentPlayers != null && currentPlayers.size() >= MAX_PLAYERS) {
+                        return new BasicResponse(false, ERROR_GAME_IS_FULL);
+                    }
+
+                    GamePlayerEntity newPlayer = new GamePlayerEntity();
+                    newPlayer.setGame(game);
+                    newPlayer.setPlayer(user);
+                    newPlayer.setScore(0);
+                    newPlayer.setCorrectAnswers(0);
+                    newPlayer.setWrongAnswers(0);
+                    newPlayer.setStreak(0);
+                    newPlayer.setFinished(false);
+
+                    persist.save(newPlayer);
+                    persist.flush();
+
+                    PlayerRuntimeState playerState = new PlayerRuntimeState();
+                    playerState.setUserId(user.getId());
+                    playerState.setFullName(user.getFullName());
+                    playerState.setUsername(user.getUsername());
+                    activeGame.getPlayers().put(user.getId(), playerState);
+
+                    playerAdded = true;
                 }
 
-                GamePlayerEntity newPlayer = new GamePlayerEntity();
-                newPlayer.setGame(game);
-                newPlayer.setPlayer(user);
-                newPlayer.setScore(0);
-                newPlayer.setCorrectAnswers(0);
-                newPlayer.setWrongAnswers(0);
-                newPlayer.setStreak(0);
-                newPlayer.setFinished(false);
-
-                persist.save(newPlayer);
-                persist.flush();
-
-                ActiveGameState activeGame = getOrReviveGame(game);
-
-                PlayerRuntimeState playerState = new PlayerRuntimeState();
-                playerState.setUserId(user.getId());
-                playerState.setFullName(user.getFullName());
-                playerState.setUsername(user.getUsername());
-                activeGame.getPlayers().put(user.getId(), playerState);
-
-                List<GamePlayerModel> livePlayers = new java.util.ArrayList<>();
-                List<GamePlayerEntity> currentPlayersUpdated = persist.getGamePlayersByGameId(game.getId());
-                for (GamePlayerEntity gp : currentPlayersUpdated) {
-                    livePlayers.add(new GamePlayerModel(gp));
+                livePlayers = new java.util.ArrayList<>();
+                for (PlayerRuntimeState prs : activeGame.getPlayers().values()) {
+                    livePlayers.add(new GamePlayerModel(prs.getUserId(), prs.getFullName(), prs));
                 }
+            }
 
+            if (playerAdded) {
                 Map<String, Object> joinEventData = new java.util.HashMap<>();
                 joinEventData.put("type", "PLAYERS_LIST_UPDATE");
                 joinEventData.put("players", livePlayers);

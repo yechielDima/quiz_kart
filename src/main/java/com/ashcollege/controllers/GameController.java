@@ -97,6 +97,16 @@ public class GameController {
         }
     }
 
+    private void broadcastPlayerMoved(int gameId, int playerId, String playerName, PlayerRuntimeState playerState) {
+        GamePlayerModel updatedPlayer = new GamePlayerModel(playerId, playerName, playerState);
+
+        Map<String, Object> eventData = new HashMap<>();
+        eventData.put("type", "PLAYER_MOVED");
+        eventData.put("playerId", playerId);
+        eventData.put("player", updatedPlayer);
+        sseService.broadcastToGame(gameId, "gameEvent", eventData);
+    }
+
     private List<Integer> trimOptions(List<Integer> options, int correctAnswer, int targetCount) {
         if (targetCount >= options.size()) return options;
 
@@ -159,11 +169,8 @@ public class GameController {
                 activeGame.getPlayers().remove(user.getId());
 
                 List<GamePlayerModel> livePlayers = new ArrayList<>();
-                List<GamePlayerEntity> dbPlayers = persist.getGamePlayersByGameId(game.getId());
-                if (dbPlayers != null) {
-                    for (GamePlayerEntity p : dbPlayers) {
-                        livePlayers.add(new GamePlayerModel(p));
-                    }
+                for (PlayerRuntimeState prs : activeGame.getPlayers().values()) {
+                    livePlayers.add(new GamePlayerModel(prs.getUserId(), prs.getFullName(), prs));
                 }
 
                 Map<String, Object> updateEvent = new HashMap<>();
@@ -219,6 +226,8 @@ public class GameController {
                 int remainingSec = totalTimeSec - (int)(elapsedMs / 1000);
 
                 if (remainingSec <= 0) {
+                    int oldScore = playerState.getScore();
+
                     playerState.setWrongAnswers(playerState.getWrongAnswers() + 1);
                     playerState.setStreak(0);
                     playerState.setCurrentQuestion(null);
@@ -240,6 +249,10 @@ public class GameController {
                         playerState.resetJunction();
                         questionDifficulty = QUESTION_NORMAL;
                         questionMode = "normal";
+                    }
+
+                    if (playerState.getScore() != oldScore) {
+                        broadcastPlayerMoved(request.getGameId(), user.getId(), user.getFullName(), playerState);
                     }
 
                     qData = null;
@@ -341,7 +354,7 @@ public class GameController {
 
             long timeTakenMs = System.currentTimeMillis() - playerState.getCurrentQuestionStartTime();
             int timeLimitMs = getTimeLimitForDifficulty(playerState.getCurrentQuestionDifficulty()) * 1000;
-            boolean timeExpired = timeTakenMs > (timeLimitMs + 2000);
+            boolean timeExpired = timeTakenMs > (timeLimitMs + ANSWER_GRACE_MS);
 
             boolean isCorrect = !timeExpired
                     && request.getAnswer() != null
@@ -425,13 +438,7 @@ public class GameController {
             int newScore = playerState.getScore();
 
             if (oldScore != newScore) {
-                GamePlayerModel updatedPlayer = new GamePlayerModel(user.getId(), user.getFullName(), playerState);
-
-                Map<String, Object> eventData = new HashMap<>();
-                eventData.put("type", "PLAYER_MOVED");
-                eventData.put("playerId", user.getId());
-                eventData.put("player", updatedPlayer);
-                sseService.broadcastToGame(request.getGameId(), "gameEvent", eventData);
+                broadcastPlayerMoved(request.getGameId(), user.getId(), user.getFullName(), playerState);
 
                 if (isCorrect) {
                     checkOvertakes(request.getGameId(), gameState, user.getId(), user.getFullName(), oldScore, newScore);

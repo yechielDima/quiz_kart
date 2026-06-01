@@ -24,6 +24,8 @@ public class Constants {
     public static final int QUESTION_TIME_NORMAL = 15;
     public static final int QUESTION_TIME_HARD = 10;
 
+    public static final int ANSWER_GRACE_MS = 2000;
+
     public static final int JUNCTION_NONE = 0;
     public static final int JUNCTION_AUTOSTRADA = 1;
     public static final int JUNCTION_DIRT_ROAD = 2;

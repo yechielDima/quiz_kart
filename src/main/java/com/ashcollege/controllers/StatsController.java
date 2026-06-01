@@ -32,6 +32,7 @@ public class StatsController {
         int gamesWon = 0;
         int totalScore = 0;
 
+        Map<Integer, List<GamePlayerEntity>> playersByGame = new HashMap<>();
         List<Map<String, Object>> recentGames = new ArrayList<>();
 
         for (GamePlayerEntity gp : gamePlayers) {
@@ -39,10 +40,15 @@ public class StatsController {
 
             GameEntity game = gp.getGame();
             if (game != null && game.getStatus() == 2) {
-                List<GamePlayerEntity> allPlayersInGame = persist.getGamePlayersByGameId(game.getId());
+                List<GamePlayerEntity> allPlayersInGame = playersByGame.get(game.getId());
+                if (allPlayersInGame == null) {
+                    allPlayersInGame = persist.getGamePlayersByGameId(game.getId());
+                    playersByGame.put(game.getId(), allPlayersInGame);
+                }
+
                 boolean isWinner = true;
                 for (GamePlayerEntity other : allPlayersInGame) {
-                    if (other.getPlayer().getId() != user.getId() && other.getScore() > gp.getScore()) {
+                    if (other.getPlayer().getId() != user.getId() && other.getScore() >= gp.getScore()) {
                         isWinner = false;
                         break;
                     }

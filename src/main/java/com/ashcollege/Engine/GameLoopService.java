@@ -3,6 +3,8 @@ package com.ashcollege.Engine;
 import com.ashcollege.entities.GamePlayerEntity;
 import com.ashcollege.entities.PlayerAnswerEntity;
 import com.ashcollege.service.Persist;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +18,8 @@ import java.util.concurrent.TimeUnit;
 
 @Component
 public class GameLoopService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GameLoopService.class);
 
     private final ActiveGameRegistry activeGameRegistry;
     private final Persist persist;
@@ -84,7 +88,7 @@ public class GameLoopService {
                     }
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.error("Failed to sync game {} state to database", gameState.getGameId(), e);
             }
         }
     }

@@ -24,7 +24,7 @@ public class AuthController {
     public BasicResponse getUser(@RequestBody com.ashcollege.requests.LoginRequest request) {
         try {
             if (request.getUsername() == null || request.getUsername().trim().isEmpty()
-                    || request.getPassword() == null || request.getPassword().trim().isEmpty()) {
+                    || request.getPassword() == null || request.getPassword().length() != 6) {
                 return new BasicResponse(false, ERROR_MISSING_VALUES);
             }
 
