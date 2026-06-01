@@ -42,6 +42,7 @@ public class FirstDashboardController {
             activeGame.setFinished(game.getStatus() == FINISHED);
             activeGame.setTrackLength(game.getTrackLength());
             activeGame.setMaxPlayers(game.getMaxPlayers());
+            activeGame.setGameType(Math.max(0, Math.min(2, game.getGameType())));
 
             List<GamePlayerEntity> dbPlayers = persist.getGamePlayersByGameId(game.getId());
             if (dbPlayers != null) {
@@ -58,7 +59,10 @@ public class FirstDashboardController {
                     activeGame.getPlayers().put(gp.getPlayer().getId(), prs);
                 }
             }
-            activeGameRegistry.addGame(activeGame);
+
+            if (game.getStatus() != FINISHED) {
+                activeGameRegistry.addGame(activeGame);
+            }
         }
         return activeGame;
     }
@@ -97,6 +101,7 @@ public class FirstDashboardController {
             activeGameState.setFinished(false);
             activeGameState.setTrackLength(TRACK_LENGTH);
             activeGameState.setMaxPlayers(MAX_PLAYERS);
+            activeGameState.setGameType(gameType);
             activeGameRegistry.addGame(activeGameState);
 
             return new NewGameResponse(true, null, newGame.getId());

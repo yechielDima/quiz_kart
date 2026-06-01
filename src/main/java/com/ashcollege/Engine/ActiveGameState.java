@@ -12,6 +12,7 @@ public class ActiveGameState {
     private long lastTickTime;
     private int trackLength;
     private int maxPlayers;
+    private int gameType;
     private final Object lock = new Object();
     private Map<Integer, PlayerRuntimeState> players = new ConcurrentHashMap<>();
 
@@ -69,6 +70,14 @@ public class ActiveGameState {
 
     public void setMaxPlayers(int maxPlayers) {
         this.maxPlayers = maxPlayers;
+    }
+
+    public int getGameType() {
+        return gameType;
+    }
+
+    public void setGameType(int gameType) {
+        this.gameType = gameType;
     }
 
     public Object getLock() {

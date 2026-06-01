@@ -6,6 +6,8 @@ import com.ashcollege.responses.DefaultParamResponse;
 import com.ashcollege.responses.LoginResponse;
 import com.ashcollege.service.Persist;
 import com.ashcollege.utils.GeneralUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,6 +18,10 @@ import static com.ashcollege.utils.Errors.*;
 
 @RestController
 public class AuthController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuthController.class);
+
+    private static final Object SIGNUP_LOCK = new Object();
 
     @Autowired
     private Persist persist;
@@ -41,7 +47,7 @@ public class AuthController {
                 return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Login failed for an incoming request", e);
             return new BasicResponse(false, ERROR_WRONG_CREDENTIALS);
         }
     }
@@ -58,23 +64,26 @@ public class AuthController {
             String username = request.getUsername().trim();
             String fullName = request.getFullName().trim();
 
-            UserEntity userEntity = persist.getUserByUsername(username);
-            if (userEntity != null) {
-                return new BasicResponse(false, ERROR_USERNAME_ALREADY_EXISTS);
+            synchronized (SIGNUP_LOCK) {
+                UserEntity userEntity = persist.getUserByUsername(username);
+                if (userEntity != null) {
+                    return new BasicResponse(false, ERROR_USERNAME_ALREADY_EXISTS);
+                }
+
+                UserEntity user = new UserEntity();
+                user.setUsername(username);
+                user.setPassword(GeneralUtils.hashPassword(username, request.getPassword()));
+                user.setFullName(fullName);
+
+                String token = GeneralUtils.hashPassword(username, request.getPassword() + System.currentTimeMillis());
+                user.setToken(token);
+                persist.save(user);
+                persist.flush();
+                return new LoginResponse(true, null, token, user.getId());
             }
 
-            UserEntity user = new UserEntity();
-            user.setUsername(username);
-            user.setPassword(GeneralUtils.hashPassword(username, request.getPassword()));
-            user.setFullName(fullName);
-
-            String token = GeneralUtils.hashPassword(username, request.getPassword() + System.currentTimeMillis());
-            user.setToken(token);
-            persist.save(user);
-            return new LoginResponse(true, null, token, user.getId());
-
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Signup failed for an incoming request", e);
             return new BasicResponse(false, ERROR_MISSING_VALUES);
         }
     }

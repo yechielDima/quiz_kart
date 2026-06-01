@@ -46,14 +46,6 @@ public class GameController {
         }
     }
 
-    private int getGameType(int gameId) {
-        GameEntity gameEntity = persist.getGameById(gameId);
-        if (gameEntity != null) {
-            return Math.max(0, Math.min(2, gameEntity.getGameType()));
-        }
-        return 0;
-    }
-
     private int getRank(ActiveGameState gameState, int playerId) {
         int myScore = gameState.getPlayers().get(playerId).getScore();
         int rank = 1;
@@ -216,7 +208,7 @@ public class GameController {
                 questionMode = "normal";
             }
 
-            int gameType = getGameType(request.getGameId());
+            int gameType = gameState.getGameType();
             MathQuestionGenerator.QuestionData qData = playerState.getCurrentQuestion();
             int timeLimit;
 

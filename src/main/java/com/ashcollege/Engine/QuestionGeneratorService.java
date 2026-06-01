@@ -121,8 +121,16 @@ public class QuestionGeneratorService {
                 int pMin = PERCENT_RESULT_RANGE[qd][0];
                 int pMax = PERCENT_RESULT_RANGE[qd][1];
                 num1 = percentages[random.nextInt(percentages.length)];
-                correctAnswer = randomInRange(pMin, pMax);
-                num2 = correctAnswer * 100 / num1;
+
+                int g = gcd(num1, 100);
+                int baseStep = 100 / g;
+                int resultStep = num1 / g;
+                int minMultiplier = Math.max(1, (pMin + resultStep - 1) / resultStep);
+                int maxMultiplier = Math.max(minMultiplier, pMax / resultStep);
+                int multiplier = randomInRange(minMultiplier, maxMultiplier);
+
+                num2 = baseStep * multiplier;
+                correctAnswer = num1 * num2 / 100;
                 sign = "% מתוך";
                 break;
         }
@@ -132,6 +140,15 @@ public class QuestionGeneratorService {
         qData.options = generateOptions(correctAnswer, operationType, num1, num2);
 
         return qData;
+    }
+
+    private int gcd(int a, int b) {
+        while (b != 0) {
+            int temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
     }
 
     private String buildQuestionText(int operationType, int gameType, int num1, int num2, String sign) {
